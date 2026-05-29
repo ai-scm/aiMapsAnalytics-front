@@ -10,6 +10,7 @@ import {syncHistoryWithStore} from 'react-router-redux';
 import store from './store';
 import App from './app';
 import {buildAppRoutes} from './utils/routes';
+import KeycloakProvider from './components/styled-components/KeycloakProvider';
 
 const history = syncHistoryWithStore(browserHistory, store);
 
@@ -17,11 +18,13 @@ const appRoute = buildAppRoutes(App);
 
 const Root = () => (
   <Provider store={store}>
-    <Router history={history}>
-      <Route path="/" component={App}>
-        {appRoute}
-      </Route>
-    </Router>
+    <KeycloakProvider>
+      <Router history={history}>
+        <Route path="/" component={App}>
+          {appRoute}
+        </Route>
+      </Router>
+    </KeycloakProvider>
   </Provider>
 );
 
