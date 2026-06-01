@@ -71,7 +71,13 @@ import sampleAnimateTrip, {
 import sampleIconCsv from './data/sample-icon-csv';
 import sampleGpsData from './data/sample-gps-data';
 import sampleRowData, {config as rowDataConfig} from './data/sample-row-data';
-import {processCsvData, processGeojson, processRowObject} from '@kepler.gl/processors';
+import {
+  processCsvData,
+  processGeojson,
+  processRowObject,
+  processKeplerglJSON
+} from '@kepler.gl/processors';
+import {useLazyGetMapFromCatalogQuery} from './components/styled-components/apiSlice';
 
 /* eslint-enable no-unused-vars */
 
@@ -155,6 +161,7 @@ const App = props => {
   const [showBanner, toggleShowBanner] = useState(false);
   const {params: {id, provider} = {}, location: {query = {}} = {}} = props;
   const dispatch = useDispatch();
+  const [triggerLoadCatalogMap] = useLazyGetMapFromCatalogQuery();
 
   // TODO find another way to check for existence of duckDb plugin
   const duckDbPluginEnabled = (getApplicationConfig().plugins || []).some(p => p.name === 'duckdb');
@@ -218,6 +225,38 @@ const App = props => {
     // no dependencies, as this was part of componentDidMount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * Listen for the map URL sent by the catalog (MapsAnalytics) via postMessage.
+   * On `dynamicURL`, download the map JSON (with progress) and inject it into
+   * Kepler. The HTTP client lives in components/styled-components/apiSlice.
+   */
+  useEffect(() => {
+    const handleMessage = event => {
+      if (event.data?.type !== 'dynamicURL') {
+        return;
+      }
+      const dynamicURL = event.data.url;
+      if (!dynamicURL) {
+        return;
+      }
+      triggerLoadCatalogMap(dynamicURL)
+        .unwrap()
+        .then(data => {
+          const keplerGL = processKeplerglJSON(data);
+          if (keplerGL) {
+            dispatch(addDataToMap(keplerGL));
+          }
+        })
+        .catch(error => {
+          // eslint-disable-next-line no-console
+          console.error('Error loading map from catalog:', error);
+        });
+    };
+
+    Window.addEventListener('message', handleMessage);
+    return () => Window.removeEventListener('message', handleMessage);
+  }, [dispatch, triggerLoadCatalogMap]);
 
   /**
    * Update map boundary when view state changes, used by ai-assistant to
