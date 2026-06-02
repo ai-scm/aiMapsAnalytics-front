@@ -40,12 +40,15 @@ import {
 import {
   loadCloudMap,
   addDataToMap,
+  loadFiles,
   replaceDataInMap,
+  toggleSidePanel,
   toggleMapControl,
   toggleModal
 } from '@kepler.gl/actions';
 import {CLOUD_PROVIDERS} from './cloud-providers';
 import {Panel, PanelGroup, PanelResizeHandle} from 'react-resizable-panels';
+import {setMapLoadError} from './components/styled-components/mapLoadSlice';
 
 const KeplerGl = require('@kepler.gl/components').injectComponents([
   replaceLoadDataModal(),
@@ -157,11 +160,59 @@ const StyledVerticalResizeHandle = styled(PanelResizeHandle)`
   }
 `;
 
+const CatalogMapLoading = styled.div`
+  position: absolute;
+  left: 50%;
+  top: 24px;
+  z-index: 20;
+  min-width: 240px;
+  transform: translateX(-50%);
+  border-radius: 4px;
+  background: ${props => props.theme.sidePanelBg || '#242730'};
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  color: ${props => props.theme.textColor || '#f7f7f7'};
+  padding: 12px;
+`;
+
+const CatalogMapLoadingText = styled.div`
+  font-size: 12px;
+  margin-bottom: 8px;
+`;
+
+const CatalogMapLoadingTrack = styled.div`
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: ${props => props.theme.panelBorder || '#3f4550'};
+`;
+
+const CatalogMapLoadingBar = styled.div`
+  width: ${props => props.progress}%;
+  height: 100%;
+  transition: width 160ms ease;
+  background: ${props => props.theme.activeColor || '#1fbad6'};
+`;
+
+const CatalogMapError = styled(CatalogMapLoading)`
+  color: ${props => props.theme.errorColor || '#ff4d4d'};
+`;
+
+function getCatalogMapFilename(url) {
+  try {
+    return new URL(url).pathname.split('/').pop() || 'catalog-map.json';
+  } catch (error) {
+    return url.split('/').pop()?.split('?')[0] || 'catalog-map.json';
+  }
+}
+
 const App = props => {
   const [showBanner, toggleShowBanner] = useState(false);
+  const [catalogMap, setCatalogMap] = useState({url: '', uId: null, fileName: ''});
   const {params: {id, provider} = {}, location: {query = {}} = {}} = props;
   const dispatch = useDispatch();
   const [triggerLoadCatalogMap] = useLazyGetMapFromCatalogQuery();
+  const {isLoading: isCatalogMapLoading, progress: catalogMapProgress, error: catalogMapError} =
+    useSelector(state => state.mapLoad);
 
   // TODO find another way to check for existence of duckDb plugin
   const duckDbPluginEnabled = (getApplicationConfig().plugins || []).some(p => p.name === 'duckdb');
@@ -226,6 +277,10 @@ const App = props => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    Window.parent?.postMessage({type: 'FRAME', text: 'Frame cargado'}, '*');
+  }, []);
+
   /**
    * Listen for the map URL sent by the catalog (MapsAnalytics) via postMessage.
    * On `dynamicURL`, download the map JSON (with progress) and inject it into
@@ -233,6 +288,9 @@ const App = props => {
    */
   useEffect(() => {
     const handleMessage = event => {
+      if (event.source !== Window.parent) {
+        return;
+      }
       if (event.data?.type !== 'dynamicURL') {
         return;
       }
@@ -240,15 +298,28 @@ const App = props => {
       if (!dynamicURL) {
         return;
       }
+      const fileName = getCatalogMapFilename(dynamicURL);
+      setCatalogMap({url: dynamicURL, uId: event.data.uId || null, fileName});
+      dispatch(toggleSidePanel(null));
       triggerLoadCatalogMap(dynamicURL)
         .unwrap()
         .then(data => {
-          const keplerGL = processKeplerglJSON(data);
-          if (keplerGL) {
-            dispatch(addDataToMap(keplerGL));
+          try {
+            const keplerGL = processKeplerglJSON(data);
+            if (keplerGL) {
+              dispatch(addDataToMap(keplerGL));
+              return;
+            }
+            throw new Error('Catalog map JSON could not be processed as a Kepler map');
+          } catch (error) {
+            const file = new File([new Blob([JSON.stringify(data)])], fileName, {
+              type: 'application/json'
+            });
+            dispatch(loadFiles([file]));
           }
         })
         .catch(error => {
+          dispatch(setMapLoadError(String(error)));
           // eslint-disable-next-line no-console
           console.error('Error loading map from catalog:', error);
         });
@@ -688,6 +759,23 @@ const App = props => {
               <Announcement onDisable={_disableBanner} />
             </Banner>
             <div style={CONTAINER_STYLE}>
+              {isCatalogMapLoading && (
+                <CatalogMapLoading>
+                  <CatalogMapLoadingText>
+                    Cargando mapa del catálogo
+                    {catalogMap.fileName ? `: ${catalogMap.fileName}` : ''}
+                  </CatalogMapLoadingText>
+                  <CatalogMapLoadingTrack>
+                    <CatalogMapLoadingBar progress={catalogMapProgress} />
+                  </CatalogMapLoadingTrack>
+                </CatalogMapLoading>
+              )}
+              {catalogMapError && (
+                <CatalogMapError>
+                  <CatalogMapLoadingText>Error cargando mapa del catálogo</CatalogMapLoadingText>
+                  <CatalogMapLoadingText>{catalogMapError}</CatalogMapLoadingText>
+                </CatalogMapError>
+              )}
               <PanelGroup direction="horizontal">
                 <Panel defaultSize={isAiAssistantPanelOpen ? 70 : 100}>
                   <PanelGroup direction="vertical">

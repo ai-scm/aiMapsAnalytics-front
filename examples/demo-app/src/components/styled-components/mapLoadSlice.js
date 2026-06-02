@@ -7,7 +7,8 @@ import {createSlice} from '@reduxjs/toolkit';
  */
 const initialState = {
   progress: 0,
-  isLoading: false
+  isLoading: false,
+  error: null
 };
 
 const mapLoadSlice = createSlice({
@@ -17,18 +18,26 @@ const mapLoadSlice = createSlice({
     setMapLoadProgress(state, action) {
       state.progress = action.payload;
       state.isLoading = action.payload < 100;
+      state.error = null;
     },
     startMapLoad(state) {
       state.progress = 0;
       state.isLoading = true;
+      state.error = null;
     },
     resetMapLoad(state) {
       state.progress = 0;
       state.isLoading = false;
+      state.error = null;
+    },
+    setMapLoadError(state, action) {
+      state.isLoading = false;
+      state.error = action.payload;
     }
   }
 });
 
-export const {setMapLoadProgress, startMapLoad, resetMapLoad} = mapLoadSlice.actions;
+export const {setMapLoadProgress, startMapLoad, resetMapLoad, setMapLoadError} =
+  mapLoadSlice.actions;
 
 export default mapLoadSlice.reducer;

@@ -2,7 +2,12 @@ import {createApi, fetchBaseQuery} from '@reduxjs/toolkit/query/react';
 
 import keycloak from './keycloak-config';
 import {getJsonItem} from './getJsonItem';
-import {startMapLoad, setMapLoadProgress, resetMapLoad} from './mapLoadSlice';
+import {
+  startMapLoad,
+  setMapLoadProgress,
+  resetMapLoad,
+  setMapLoadError
+} from './mapLoadSlice';
 
 /**
  * Cliente HTTP del catálogo MapsAnalytics (RTK Query).
@@ -38,6 +43,7 @@ export const apiSlice = createApi({
           return {data};
         } catch (error) {
           api.dispatch(resetMapLoad());
+          api.dispatch(setMapLoadError(String(error)));
           return {error: {status: 'FETCH_ERROR', error: String(error)}};
         }
       }
