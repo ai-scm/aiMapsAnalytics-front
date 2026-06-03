@@ -13,7 +13,7 @@ import {
  * Cliente HTTP del catálogo MapsAnalytics (RTK Query).
  *
  * - baseQuery apunta al API del catálogo (process.env.API_URL) e inyecta el
- *   token de Keycloak para futuros endpoints contra el catálogo.
+ *   token de Keycloak para los endpoints contra el catálogo.
  * - getMapFromCatalog descarga el JSON del mapa desde una URL presignada de S3
  *   (la que envía el catálogo por postMessage). Usa un queryFn con getJsonItem
  *   para poder reportar el progreso de descarga al slice mapLoad; por eso hace
@@ -31,6 +31,24 @@ export const apiSlice = createApi({
     }
   }),
   endpoints: builder => ({
+    getGroups: builder.query({
+      query: () => '/groups/getAll',
+      transformResponse: response => response?.value ?? []
+    }),
+    uploadItemMap: builder.mutation({
+      query: formData => ({
+        url: '/items/upload',
+        method: 'POST',
+        body: formData
+      })
+    }),
+    updateItemJson: builder.mutation({
+      query: ({uuidNumber, formData}) => ({
+        url: `/items/updateJson/${uuidNumber}`,
+        method: 'PUT',
+        body: formData
+      })
+    }),
     getMapFromCatalog: builder.query({
       async queryFn(url, api) {
         api.dispatch(startMapLoad());
@@ -51,6 +69,12 @@ export const apiSlice = createApi({
   })
 });
 
-export const {useGetMapFromCatalogQuery, useLazyGetMapFromCatalogQuery} = apiSlice;
+export const {
+  useGetGroupsQuery,
+  useUploadItemMapMutation,
+  useUpdateItemJsonMutation,
+  useGetMapFromCatalogQuery,
+  useLazyGetMapFromCatalogQuery
+} = apiSlice;
 
 export default apiSlice;
