@@ -558,7 +558,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@dotenv-run/esbuild@npm:^1.5.0":
+"@dotenv-run/esbuild@npm:^1.5.2":
   version: 1.5.2
   resolution: "@dotenv-run/esbuild@npm:1.5.2"
   dependencies:
@@ -14147,7 +14147,7 @@ __metadata:
   dependencies:
     "@auth0/auth0-spa-js": "npm:^2.1.2"
     "@carto/toolkit": "npm:0.0.1-rc.18"
-    "@dotenv-run/esbuild": "npm:^1.5.0"
+    "@dotenv-run/esbuild": "npm:^1.5.2"
     "@emotion/is-prop-valid": "npm:^1.2.1"
     "@kepler.gl/actions": "npm:^3.2.0"
     "@kepler.gl/ai-assistant": "npm:^3.2.0"

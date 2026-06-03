@@ -81,6 +81,7 @@ import {
   processKeplerglJSON
 } from '@kepler.gl/processors';
 import {useLazyGetMapFromCatalogQuery} from './components/styled-components/apiSlice';
+import SaveMap from './components/styled-components/SaveMap';
 
 /* eslint-enable no-unused-vars */
 
@@ -776,6 +777,7 @@ const App = props => {
                   <CatalogMapLoadingText>{catalogMapError}</CatalogMapLoadingText>
                 </CatalogMapError>
               )}
+              <SaveMap uId={catalogMap.uId} />
               <PanelGroup direction="horizontal">
                 <Panel defaultSize={isAiAssistantPanelOpen ? 70 : 100}>
                   <PanelGroup direction="vertical">
