@@ -71,6 +71,7 @@ export const apiSlice = createApi({
 
 export const {
   useGetGroupsQuery,
+  useLazyGetGroupsQuery,
   useUploadItemMapMutation,
   useUpdateItemJsonMutation,
   useGetMapFromCatalogQuery,

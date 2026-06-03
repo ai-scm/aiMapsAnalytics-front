@@ -34,7 +34,8 @@ import {
   loadRemoteMap,
   loadSampleConfigurations,
   onExportFileSuccess,
-  onLoadCloudMapSuccess
+  onLoadCloudMapSuccess,
+  setCatalogMapMetadata
 } from './actions';
 
 import {
@@ -81,7 +82,7 @@ import {
   processKeplerglJSON
 } from '@kepler.gl/processors';
 import {useLazyGetMapFromCatalogQuery} from './components/styled-components/apiSlice';
-import SaveMap from './components/styled-components/SaveMap';
+import {getCatalogMapStyles} from './components/styled-components/mapStyles';
 
 /* eslint-enable no-unused-vars */
 
@@ -98,6 +99,7 @@ function shouldForwardProp(propName, target) {
 const BannerHeight = 48;
 const BannerKey = `banner-${FormLink}`;
 const keplerGlGetState = state => state.demo.keplerGl;
+const catalogMapStyles = Object.values(getCatalogMapStyles());
 
 const GlobalStyle = styled.div`
   font-family: ff-clan-web-pro, 'Helvetica Neue', Helvetica, sans-serif;
@@ -208,12 +210,12 @@ function getCatalogMapFilename(url) {
 
 const App = props => {
   const [showBanner, toggleShowBanner] = useState(false);
-  const [catalogMap, setCatalogMap] = useState({url: '', uId: null, fileName: ''});
   const {params: {id, provider} = {}, location: {query = {}} = {}} = props;
   const dispatch = useDispatch();
   const [triggerLoadCatalogMap] = useLazyGetMapFromCatalogQuery();
   const {isLoading: isCatalogMapLoading, progress: catalogMapProgress, error: catalogMapError} =
     useSelector(state => state.mapLoad);
+  const catalogMap = useSelector(state => state.demo.app.catalogMap);
 
   // TODO find another way to check for existence of duckDb plugin
   const duckDbPluginEnabled = (getApplicationConfig().plugins || []).some(p => p.name === 'duckdb');
@@ -300,7 +302,7 @@ const App = props => {
         return;
       }
       const fileName = getCatalogMapFilename(dynamicURL);
-      setCatalogMap({url: dynamicURL, uId: event.data.uId || null, fileName});
+      dispatch(setCatalogMapMetadata({url: dynamicURL, uId: event.data.uId || null, fileName}));
       dispatch(toggleSidePanel(null));
       triggerLoadCatalogMap(dynamicURL)
         .unwrap()
@@ -777,7 +779,6 @@ const App = props => {
                   <CatalogMapLoadingText>{catalogMapError}</CatalogMapLoadingText>
                 </CatalogMapError>
               )}
-              <SaveMap uId={catalogMap.uId} />
               <PanelGroup direction="horizontal">
                 <Panel defaultSize={isAiAssistantPanelOpen ? 70 : 100}>
                   <PanelGroup direction="vertical">
@@ -790,6 +791,7 @@ const App = props => {
                             getState={keplerGlGetState}
                             width={width}
                             height={height}
+                            mapStyles={catalogMapStyles}
                             cloudProviders={CLOUD_PROVIDERS}
                             localeMessages={messages}
                             onExportToCloudSuccess={onExportFileSuccess}

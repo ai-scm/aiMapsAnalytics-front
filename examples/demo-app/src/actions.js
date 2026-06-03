@@ -25,6 +25,7 @@ export const LOAD_REMOTE_DATASET_PROCESSED_SUCCESS = 'LOAD_REMOTE_DATASET_PROCES
 export const LOAD_REMOTE_RESOURCE_ERROR = 'LOAD_REMOTE_RESOURCE_ERROR';
 export const LOAD_MAP_SAMPLE_FILE = 'LOAD_MAP_SAMPLE_FILE';
 export const SET_SAMPLE_LOADING_STATUS = 'SET_SAMPLE_LOADING_STATUS';
+export const SET_CATALOG_MAP_METADATA = 'SET_CATALOG_MAP_METADATA';
 
 // Sharing
 export const PUSHING_FILE = 'PUSHING_FILE';
@@ -73,6 +74,13 @@ export function setLoadingMapStatus(isMapLoading) {
   return {
     type: SET_SAMPLE_LOADING_STATUS,
     isMapLoading
+  };
+}
+
+export function setCatalogMapMetadata(metadata) {
+  return {
+    type: SET_CATALOG_MAP_METADATA,
+    metadata
   };
 }
 

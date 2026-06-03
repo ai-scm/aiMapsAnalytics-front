@@ -2,72 +2,24 @@ import React, {useEffect, useState} from 'react';
 import {useDispatch, useSelector, useStore} from 'react-redux';
 import styled from 'styled-components';
 import KeplerGlSchema from '@kepler.gl/schemas';
+import {Icons, MapControlButton} from '@kepler.gl/components';
 
 import {
-  useGetGroupsQuery,
+  useLazyGetGroupsQuery,
   useUploadItemMapMutation,
   useUpdateItemJsonMutation
 } from './apiSlice';
 import {captureMapImageBlob} from './exportMapImage';
+import downloadJsonFile from './downloadJsonFile';
 
 const MAX_DESCRIPTION_LENGTH = 255;
 
 /* ----------------------------- styled-components ---------------------------- */
 
-const FloatingButtons = styled.div`
-  position: absolute;
-  z-index: 100;
-  top: 322px;
-  right: 12px;
+const SaveMapControls = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 6px;
-`;
-
-const IconButton = styled.button`
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  color: ${props => props.theme.textColorHl || '#ffffff'};
-  background-color: ${props => props.theme.secondaryBtnBgd || '#3a414c'};
-
-  &:hover {
-    background-color: ${props => props.theme.secondaryBtnBgdHover || '#4b5563'};
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  svg {
-    width: 18px;
-    height: 18px;
-  }
-`;
-
-const Tooltip = styled.span`
-  position: absolute;
-  right: 40px;
-  white-space: nowrap;
-  padding: 4px 8px;
-  font-size: 11px;
-  border-radius: 2px;
-  color: ${props => props.theme.textColorHl || '#ffffff'};
-  background-color: ${props => props.theme.tooltipBg || '#111317'};
-  pointer-events: none;
-`;
-
-const ButtonRow = styled.div`
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  gap: 8px;
 `;
 
 const Overlay = styled.div`
@@ -165,7 +117,7 @@ const ModalButton = styled.button`
 `;
 
 const StatusMessage = styled.div`
-  position: absolute;
+  position: fixed;
   bottom: 16px;
   right: 16px;
   z-index: 1100;
@@ -176,45 +128,31 @@ const StatusMessage = styled.div`
   background: ${props => (props.error ? '#d64545' : '#0F9668')};
 `;
 
-/* --------------------------------- iconos ---------------------------------- */
-
-const SaveAsIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-    <polyline points="17 21 17 13 7 13 7 21" />
-    <polyline points="7 3 7 8 15 8" />
-  </svg>
-);
-
-const SaveIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-    <polyline points="17 21 17 13 7 13 7 21" />
-    <polyline points="7 3 7 8 15 8" />
-    <path d="M12 17v-3" strokeLinecap="round" />
-  </svg>
-);
-
 /* ------------------------------- componente -------------------------------- */
 
 const initialForm = {title: '', description: '', groups: []};
 
-const SaveMap = ({uId}) => {
+const SaveMap = ({uId, catalogMap, isExport, className}) => {
   const dispatch = useDispatch();
   const store = useStore();
   const map = useSelector(state => state.demo?.keplerGl?.map);
+  const catalogUId = uId ?? catalogMap?.uId;
+  const catalogFileName = catalogMap?.fileName;
 
-  const {data: groups = []} = useGetGroupsQuery();
+  const [
+    getGroups,
+    {data: groups = [], isFetching: isLoadingGroups, isError: hasGroupsError}
+  ] = useLazyGetGroupsQuery();
   const [uploadItemMap, {isLoading: isUploading}] = useUploadItemMapMutation();
   const [updateItemJson, {isLoading: isUpdating}] = useUpdateItemJsonMutation();
 
   const [open, setOpen] = useState(false);
-  const [hovered, setHovered] = useState(null);
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState(null); // {message, error}
 
   const busy = isUploading || isUpdating;
+  const canSubmit = !busy && !isLoadingGroups && !hasGroupsError;
 
   // Oculta el mensaje de estado tras unos segundos.
   useEffect(() => {
@@ -223,8 +161,10 @@ const SaveMap = ({uId}) => {
     return () => clearTimeout(id);
   }, [status]);
 
+  const buildSavedMap = () => KeplerGlSchema.save(map);
+
   const buildMapFile = () => {
-    const savedMap = KeplerGlSchema.save(map);
+    const savedMap = buildSavedMap();
     const fileName = `${crypto.randomUUID()}.map.json`;
     const blob = new Blob([JSON.stringify(savedMap)], {type: 'application/json'});
     return new File([blob], fileName, {type: 'application/json'});
@@ -265,18 +205,30 @@ const SaveMap = ({uId}) => {
 
   // Guardar: actualiza el mapa existente (PUT /items/updateJson/{uId}).
   const handleUpdate = async () => {
-    if (!uId) return;
+    if (!catalogUId) return;
     try {
       const formData = new FormData();
       formData.append('file', buildMapFile());
       const imageBlob = await captureMapImageBlob(dispatch, store.getState);
       formData.append('thumbnail', imageBlob, 'kepler-map.png');
 
-      await updateItemJson({uuidNumber: uId, formData}).unwrap();
+      await updateItemJson({uuidNumber: catalogUId, formData}).unwrap();
       setStatus({message: 'Mapa actualizado correctamente', error: false});
     } catch (error) {
       console.error('Error actualizando el mapa', error);
       setStatus({message: 'Error al actualizar el mapa', error: true});
+    }
+  };
+
+  const handleExportJson = () => {
+    try {
+      const savedMap = buildSavedMap();
+      const fileName = catalogFileName || `kepler-map-${Date.now()}.json`;
+      downloadJsonFile(savedMap, fileName);
+      setStatus({message: 'Mapa exportado correctamente', error: false});
+    } catch (error) {
+      console.error('Error exportando el mapa', error);
+      setStatus({message: 'Error al exportar el mapa', error: true});
     }
   };
 
@@ -290,39 +242,51 @@ const SaveMap = ({uId}) => {
     setForm(prev => ({...prev, groups: selected}));
   };
 
+  const handleOpenCreate = () => {
+    setErrors({});
+    setOpen(true);
+    getGroups(undefined, true);
+  };
+
+  if (isExport) {
+    return null;
+  }
+
   return (
     <>
-      <FloatingButtons>
-        <ButtonRow>
-          {hovered === 'create' && <Tooltip>Guardar como</Tooltip>}
-          <IconButton
-            type="button"
-            aria-label="Guardar como"
-            disabled={busy}
-            onMouseEnter={() => setHovered('create')}
-            onMouseLeave={() => setHovered(null)}
-            onClick={() => setOpen(true)}
-          >
-            <SaveAsIcon />
-          </IconButton>
-        </ButtonRow>
+      <SaveMapControls className={className}>
+        <MapControlButton
+          type="button"
+          aria-label="Guardar como"
+          title="Guardar como"
+          disabled={busy}
+          onClick={handleOpenCreate}
+        >
+          <Icons.Save height="18px" />
+        </MapControlButton>
 
-        {uId && (
-          <ButtonRow>
-            {hovered === 'update' && <Tooltip>Guardar</Tooltip>}
-            <IconButton
-              type="button"
-              aria-label="Guardar"
-              disabled={busy}
-              onMouseEnter={() => setHovered('update')}
-              onMouseLeave={() => setHovered(null)}
-              onClick={handleUpdate}
-            >
-              <SaveIcon />
-            </IconButton>
-          </ButtonRow>
+        {catalogUId && (
+          <MapControlButton
+            type="button"
+            aria-label="Guardar"
+            title="Guardar"
+            disabled={busy}
+            onClick={handleUpdate}
+          >
+            <Icons.Save2 height="18px" />
+          </MapControlButton>
         )}
-      </FloatingButtons>
+
+        <MapControlButton
+          type="button"
+          aria-label="Exportar JSON"
+          title="Exportar JSON"
+          disabled={busy}
+          onClick={handleExportJson}
+        >
+          <Icons.BaseMap height="18px" />
+        </MapControlButton>
+      </SaveMapControls>
 
       {open && (
         <Overlay onClick={() => !busy && setOpen(false)}>
@@ -353,13 +317,20 @@ const SaveMap = ({uId}) => {
 
             <Field>
               Grupos
-              <MultiSelect multiple value={form.groups} onChange={handleGroupsChange}>
+              <MultiSelect
+                multiple
+                value={form.groups}
+                onChange={handleGroupsChange}
+                disabled={isLoadingGroups || hasGroupsError}
+              >
                 {groups.map(group => (
                   <option key={group.uuid} value={group.uuid}>
                     {group.title}
                   </option>
                 ))}
               </MultiSelect>
+              {isLoadingGroups && <FieldError>Cargando grupos…</FieldError>}
+              {hasGroupsError && <FieldError>Error cargando grupos</FieldError>}
               {errors.groups && <FieldError>{errors.groups}</FieldError>}
             </Field>
 
@@ -367,7 +338,7 @@ const SaveMap = ({uId}) => {
               <ModalButton type="button" onClick={() => setOpen(false)} disabled={busy}>
                 Cancelar
               </ModalButton>
-              <ModalButton type="submit" primary disabled={busy}>
+              <ModalButton type="submit" primary disabled={!canSubmit}>
                 {busy ? 'Guardando…' : 'Enviar'}
               </ModalButton>
             </Actions>
