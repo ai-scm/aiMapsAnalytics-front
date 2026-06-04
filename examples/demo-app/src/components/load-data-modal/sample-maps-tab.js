@@ -7,22 +7,6 @@ import {Icons} from '@kepler.gl/components';
 import {media} from '@kepler.gl/styles';
 import {FormattedMessage} from 'react-intl';
 
-import {ASSETS_URL} from '../../constants/default-settings';
-
-const StyledMapIcon = styled.div`
-  background-image: url('${ASSETS_URL}icon-demo-map.jpg');
-  background-repeat: no-repeat;
-  background-size: 64px 48px;
-  width: 64px;
-  height: 48px;
-  border-radius: 2px;
-
-  ${media.portable`
-    width: 48px;
-    height: 32px;
-  `};
-`;
-
 const StyledTrySampleData = styled.div`
   display: flex;
   margin-bottom: 12px;
@@ -31,7 +15,6 @@ const StyledTrySampleData = styled.div`
   color: ${props => props.theme.subtextColorLT};
 
   .demo-map-title {
-    margin-left: 16px;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -73,7 +56,6 @@ const StyledTrySampleData = styled.div`
 const SampleMapsTab = ({onClick}) => {
   return (
     <StyledTrySampleData className="try-sample-data">
-      <StyledMapIcon className="demo-map-icon" />
       <div className="demo-map-title">
         <div className="demo-map-label">
           <FormattedMessage id={'sampleMapsTab.noData'} defaultMessage="No Data" />

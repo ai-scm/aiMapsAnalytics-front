@@ -18,7 +18,7 @@ import {
   AiAssistantPanel,
   setMapBoundary
 } from '@kepler.gl/ai-assistant';
-import {panelBorderColor, theme} from '@kepler.gl/styles';
+import {panelBorderColor} from '@kepler.gl/styles';
 import {ParsedConfig} from '@kepler.gl/types';
 import {getApplicationConfig} from '@kepler.gl/utils';
 import {SqlPanel} from '@kepler.gl/duckdb/components';
@@ -83,6 +83,7 @@ import {
 } from '@kepler.gl/processors';
 import {useLazyGetMapFromCatalogQuery} from './components/styled-components/apiSlice';
 import {getCatalogMapStyles} from './components/styled-components/mapStyles';
+import {mapsAnalyticsTheme} from './components/styled-components/theme';
 
 /* eslint-enable no-unused-vars */
 
@@ -127,6 +128,128 @@ const GlobalStyle = styled.div`
   a {
     text-decoration: none;
     color: ${props => props.theme.labelColor};
+  }
+
+  .kepler-gl {
+    color: ${props => props.theme.textColor};
+
+    .side-panel__panel-header__top {
+      justify-content: flex-end;
+    }
+
+    .button {
+      letter-spacing: 0;
+    }
+
+    .button:not(.map-control-button) {
+      border: ${props => props.theme.primaryBtnBorder || 0};
+      background-color: ${props => props.theme.primaryBtnBgd};
+      color: ${props => props.theme.primaryBtnColor};
+    }
+
+    .button:not(.map-control-button):hover,
+    .button:not(.map-control-button):focus,
+    .button:not(.map-control-button):active,
+    .button:not(.map-control-button).active {
+      background-color: ${props => props.theme.primaryBtnBgdHover};
+      color: ${props => props.theme.primaryBtnActColor};
+    }
+
+    .button.secondary,
+    .button.cancel,
+    .button.link {
+      border: ${props => props.theme.secondaryBtnBorder};
+      background-color: ${props => props.theme.secondaryBtnBgd};
+      color: ${props => props.theme.secondaryBtnColor};
+    }
+
+    .button.secondary:hover,
+    .button.cancel:hover,
+    .button.link:hover {
+      background-color: ${props => props.theme.secondaryBtnBgdHover};
+      color: ${props => props.theme.secondaryBtnActColor};
+    }
+
+    .map-control-button {
+      border: ${props => props.theme.floatingBtnBorder};
+      background-color: ${props => props.theme.floatingBtnBgd};
+      color: ${props => props.theme.floatingBtnColor};
+      box-shadow: ${props => props.theme.panelBoxShadow};
+    }
+
+    .map-control-button:hover,
+    .map-control-button:focus,
+    .map-control-button:active,
+    .map-control-button.active,
+    .map-control-button.isActive {
+      border: ${props => props.theme.floatingBtnBorderHover};
+      background-color: ${props => props.theme.floatingBtnBgdHover};
+      color: ${props => props.theme.floatingBtnActColor};
+    }
+
+    input,
+    textarea,
+    select,
+    .item-selector,
+    .typeahead,
+    .item-selector__dropdown,
+    .item-selector__dropdown__value {
+      border-color: ${props => props.theme.inputBorderColor};
+      background-color: ${props => props.theme.inputBgd};
+      color: ${props => props.theme.inputColor};
+    }
+
+    input:hover,
+    textarea:hover,
+    select:hover,
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: ${props => props.theme.inputBorderActiveColor};
+      background-color: ${props => props.theme.inputBgdActive};
+      color: ${props => props.theme.inputColor};
+    }
+
+    .list,
+    .list__section,
+    .list__item,
+    .typeahead__dropdown,
+    .item-selector__dropdown-list {
+      background-color: ${props => props.theme.dropdownListBgd};
+      color: ${props => props.theme.textColor};
+      border-color: ${props => props.theme.dropdownListBorderTop};
+    }
+
+    .list__item:hover,
+    .list__item.hover,
+    .list__item.selected {
+      background-color: ${props => props.theme.dropdownListHighlightBg};
+      color: ${props => props.theme.textColorHl};
+    }
+
+    .list__item__anchor,
+    .list__item__anchor:visited {
+      color: ${props => props.theme.textColor};
+    }
+
+    .list__item:hover .list__item__anchor,
+    .list__item.hover .list__item__anchor,
+    .list__item.selected .list__item__anchor {
+      color: ${props => props.theme.textColorHl};
+    }
+
+    .side-panel,
+    .side-panel__header,
+    .side-panel-panel__content,
+    .side-panel-section {
+      background-color: ${props => props.theme.sidePanelBg};
+      color: ${props => props.theme.textColor};
+    }
+
+    .side-panel-panel__header,
+    .side-panel-panel__content {
+      border-color: ${props => props.theme.panelBorderColor};
+    }
   }
 `;
 
@@ -743,7 +866,7 @@ const App = props => {
 
   return (
     <StyleSheetManager shouldForwardProp={shouldForwardProp}>
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={mapsAnalyticsTheme}>
         <GlobalStyle
         // this is to apply the same modal style as kepler.gl core
         // because styled-components doesn't always return a node

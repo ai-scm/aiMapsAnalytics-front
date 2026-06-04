@@ -40,9 +40,10 @@ const ModalCard = styled.form`
   display: flex;
   flex-direction: column;
   gap: 16px;
-  color: ${props => props.theme.textColor || '#a0a7b4'};
-  background: ${props => props.theme.panelBackground || '#29323c'};
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  color: ${props => props.theme.textColor || '#4a5568'};
+  background: ${props => props.theme.panelBackground || '#f7f7f7'};
+  border: 1px solid ${props => props.theme.panelBorderColor || '#d5dbe3'};
+  box-shadow: 0 8px 24px rgba(31, 41, 55, 0.2);
 `;
 
 const ModalTitle = styled.h2`
@@ -61,10 +62,15 @@ const Field = styled.label`
 const TextInput = styled.input`
   padding: 8px;
   border-radius: 2px;
-  border: 1px solid ${props => props.theme.inputBorderColor || '#3a414c'};
-  background: ${props => props.theme.inputBgd || '#1b242d'};
+  border: 1px solid ${props => props.theme.inputBorderColor || '#d5dbe3'};
+  background: ${props => props.theme.inputBgd || '#f7f7f7'};
   color: ${props => props.theme.textColorHl || '#ffffff'};
   font-size: 13px;
+
+  &:focus {
+    outline: 1px solid ${props => props.theme.activeColor || '#2473bd'};
+    background: ${props => props.theme.inputBgdActive || '#ffffff'};
+  }
 `;
 
 const TextArea = styled.textarea`
@@ -72,20 +78,30 @@ const TextArea = styled.textarea`
   border-radius: 2px;
   min-height: 64px;
   resize: vertical;
-  border: 1px solid ${props => props.theme.inputBorderColor || '#3a414c'};
-  background: ${props => props.theme.inputBgd || '#1b242d'};
+  border: 1px solid ${props => props.theme.inputBorderColor || '#d5dbe3'};
+  background: ${props => props.theme.inputBgd || '#f7f7f7'};
   color: ${props => props.theme.textColorHl || '#ffffff'};
   font-size: 13px;
+
+  &:focus {
+    outline: 1px solid ${props => props.theme.activeColor || '#2473bd'};
+    background: ${props => props.theme.inputBgdActive || '#ffffff'};
+  }
 `;
 
 const MultiSelect = styled.select`
   padding: 8px;
   min-height: 96px;
   border-radius: 2px;
-  border: 1px solid ${props => props.theme.inputBorderColor || '#3a414c'};
-  background: ${props => props.theme.inputBgd || '#1b242d'};
+  border: 1px solid ${props => props.theme.inputBorderColor || '#d5dbe3'};
+  background: ${props => props.theme.inputBgd || '#f7f7f7'};
   color: ${props => props.theme.textColorHl || '#ffffff'};
   font-size: 13px;
+
+  &:focus {
+    outline: 1px solid ${props => props.theme.activeColor || '#2473bd'};
+    background: ${props => props.theme.inputBgdActive || '#ffffff'};
+  }
 `;
 
 const FieldError = styled.span`
@@ -106,9 +122,14 @@ const ModalButton = styled.button`
   cursor: pointer;
   font-size: 13px;
   color: ${props =>
-    props.primary ? props.theme.primaryBtnActColor || '#ffffff' : props.theme.textColor || '#a0a7b4'};
+    props.primary ? props.theme.primaryBtnActColor || '#ffffff' : props.theme.textColor || '#4a5568'};
   background: ${props =>
-    props.primary ? props.theme.primaryBtnBgd || '#0F9668' : 'transparent'};
+    props.primary ? props.theme.primaryBtnBgd || '#2473bd' : 'transparent'};
+
+  &:hover:not(:disabled) {
+    background: ${props =>
+      props.primary ? props.theme.primaryBtnBgdHover || '#1869b5' : props.theme.secondaryBtnBgdHover || '#f0f0f0'};
+  }
 
   &:disabled {
     opacity: 0.5;
@@ -125,7 +146,7 @@ const StatusMessage = styled.div`
   border-radius: 2px;
   font-size: 13px;
   color: #ffffff;
-  background: ${props => (props.error ? '#d64545' : '#0F9668')};
+  background: ${props => (props.error ? props.theme.errorColor || '#d64545' : props.theme.primaryBtnBgd || '#2473bd')};
 `;
 
 /* ------------------------------- componente -------------------------------- */
@@ -170,6 +191,11 @@ const SaveMap = ({uId, catalogMap, isExport, className}) => {
     return new File([blob], fileName, {type: 'application/json'});
   };
 
+  const appendThumbnail = async formData => {
+    const imageBlob = await captureMapImageBlob(dispatch, store.getState);
+    formData.append('thumbnail', imageBlob, 'kepler-map.png');
+  };
+
   // Guardar como: crea un mapa nuevo (POST /items/upload).
   const handleCreate = async event => {
     event.preventDefault();
@@ -187,8 +213,7 @@ const SaveMap = ({uId, catalogMap, isExport, className}) => {
     try {
       const formData = new FormData();
       formData.append('file', buildMapFile());
-      const imageBlob = await captureMapImageBlob(dispatch, store.getState);
-      formData.append('thumbnail', imageBlob, 'kepler-map.png');
+      await appendThumbnail(formData);
       formData.append('title', form.title);
       formData.append('description', form.description);
       form.groups.forEach(group => formData.append('groups', group));
@@ -199,7 +224,7 @@ const SaveMap = ({uId, catalogMap, isExport, className}) => {
       setForm(initialForm);
     } catch (error) {
       console.error('Error guardando el mapa', error);
-      setStatus({message: 'Error al guardar el mapa', error: true});
+      setStatus({message: error?.message || 'Error al guardar el mapa', error: true});
     }
   };
 
@@ -209,14 +234,13 @@ const SaveMap = ({uId, catalogMap, isExport, className}) => {
     try {
       const formData = new FormData();
       formData.append('file', buildMapFile());
-      const imageBlob = await captureMapImageBlob(dispatch, store.getState);
-      formData.append('thumbnail', imageBlob, 'kepler-map.png');
+      await appendThumbnail(formData);
 
       await updateItemJson({uuidNumber: catalogUId, formData}).unwrap();
       setStatus({message: 'Mapa actualizado correctamente', error: false});
     } catch (error) {
       console.error('Error actualizando el mapa', error);
-      setStatus({message: 'Error al actualizar el mapa', error: true});
+      setStatus({message: error?.message || 'Error al actualizar el mapa', error: true});
     }
   };
 

@@ -9,6 +9,7 @@ export function CustomPanelHeaderFactory(...deps) {
   const defaultActionItems = PanelHeader.defaultProps.actionItems;
   PanelHeader.defaultProps = {
     ...PanelHeader.defaultProps,
+    logoComponent: null,
     actionItems: [
       {
         id: 'bug',
