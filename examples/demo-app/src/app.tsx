@@ -43,6 +43,7 @@ import {
   addDataToMap,
   loadFiles,
   replaceDataInMap,
+  setLocale,
   toggleSidePanel,
   toggleMapControl,
   toggleModal
@@ -406,6 +407,10 @@ const App = props => {
   useEffect(() => {
     Window.parent?.postMessage({type: 'FRAME', text: 'Frame cargado'}, '*');
   }, []);
+
+  useEffect(() => {
+    dispatch(setLocale('es'));
+  }, [dispatch]);
 
   /**
    * Listen for the map URL sent by the catalog (MapsAnalytics) via postMessage.

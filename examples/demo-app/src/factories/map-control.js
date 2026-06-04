@@ -15,6 +15,8 @@ import {AiAssistantControlFactory} from '@kepler.gl/ai-assistant';
 import {SampleMapPanel} from '../components/map-control/map-control';
 import SqlPanelControlFactory from '../components/map-control/sql-panel-control';
 import SaveMap from '../components/styled-components/SaveMap';
+import LayerCategoriesControl from '../components/styled-components/LayerCategoriesControl';
+import ExportImageControl from '../components/styled-components/ExportImageControl';
 
 const StyledMapControlPanel = styled.div`
   position: relative;
@@ -73,6 +75,8 @@ function CustomMapControlFactory(
   const MapControl = MapControlFactory(...deps);
   const actionComponents = [
     ...(MapControl.defaultActionComponents ?? []),
+    LayerCategoriesControl,
+    ExportImageControl,
     SaveMap,
     EffectControl,
     SqlPanelControl,
