@@ -5,6 +5,7 @@ import {Icons, MapControlButton} from '@kepler.gl/components';
 import {layerConfigChange} from '@kepler.gl/actions';
 
 import {getLayersFromKepler} from './getLayersFromKepler';
+import ControlTooltip from './ControlTooltip';
 
 const Panel = styled.div`
   position: absolute;
@@ -182,21 +183,22 @@ export default function LayerCategoriesControl({isExport}) {
     dispatch(layerConfigChange(layer, {isVisible: !layer.config.isVisible}));
   };
 
-  if (isExport || !categoryTree.length) {
+  if (isExport) {
     return null;
   }
 
   return (
     <>
-      <MapControlButton
-        type="button"
-        aria-label="Categorías"
-        title="Categorías"
-        active={open}
-        onClick={() => setOpen(value => !value)}
-      >
-        <Icons.Layers height="18px" />
-      </MapControlButton>
+      <ControlTooltip id="action-layer-categories" label="Catálogo de mapas">
+        <MapControlButton
+          type="button"
+          aria-label="Catálogo de mapas"
+          active={open}
+          onClick={() => setOpen(value => !value)}
+        >
+          <Icons.Layers height="18px" />
+        </MapControlButton>
+      </ControlTooltip>
 
       {open && (
         <Panel>

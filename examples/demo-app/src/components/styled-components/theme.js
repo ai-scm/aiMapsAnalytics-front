@@ -134,7 +134,15 @@ export const mapsAnalyticsTheme = {
   progressBarColor: blue,
   progressBarTrackColor: '#e6eef7',
   errorColor: '#d64545',
-  logoColor: blue
+  logoColor: blue,
+
+  // Toolbar items (editor de capas: selecciona, polígono, rectángulo)
+  // El tema base de kepler usa fondo oscuro (#3A4552) + texto blanco, pero
+  // nuestro textColorHl:blue se mezcla con ese fondo y queda ilegible.
+  // Llevamos el toolbar a tema claro para que sea coherente con el panel.
+  toolbarItemBgdHover: '#e6eef7',
+  toolbarItemIconHover: blue,
+  toolbarItemBorderHover: border,
 };
 
 export default mapsAnalyticsTheme;

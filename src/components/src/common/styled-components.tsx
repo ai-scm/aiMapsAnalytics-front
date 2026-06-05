@@ -176,24 +176,36 @@ export const Tooltip: IStyledComponent<'web', TooltipAttrsProps> = styled(
       background-color: ${props => props.theme.tooltipBg};
       color: ${props => props.theme.tooltipColor};
       &.place-bottom {
+        &:before {
+          border-bottom-color: ${props => props.theme.tooltipBg};
+        }
         &:after {
           border-bottom-color: ${props => props.theme.tooltipBg};
         }
       }
 
       &.place-top {
+        &:before {
+          border-top-color: ${props => props.theme.tooltipBg};
+        }
         &:after {
           border-top-color: ${props => props.theme.tooltipBg};
         }
       }
 
       &.place-right {
+        &:before {
+          border-right-color: ${props => props.theme.tooltipBg};
+        }
         &:after {
           border-right-color: ${props => props.theme.tooltipBg};
         }
       }
 
       &.place-left {
+        &:before {
+          border-left-color: ${props => props.theme.tooltipBg};
+        }
         &:after {
           border-left-color: ${props => props.theme.tooltipBg};
         }

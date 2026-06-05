@@ -4,6 +4,8 @@ import {Icons, MapControlButton} from '@kepler.gl/components';
 import {EXPORT_IMAGE_ID} from '@kepler.gl/constants';
 import {startExportingImage, toggleModal} from '@kepler.gl/actions';
 
+import ControlTooltip from './ControlTooltip';
+
 export default function ExportImageControl({isExport}) {
   const dispatch = useDispatch();
 
@@ -17,13 +19,10 @@ export default function ExportImageControl({isExport}) {
   };
 
   return (
-    <MapControlButton
-      type="button"
-      aria-label="Exportar imagen"
-      title="Exportar imagen"
-      onClick={openExportImage}
-    >
-      <Icons.Picture height="18px" />
-    </MapControlButton>
+    <ControlTooltip id="action-export-image" label="Exportar imagen">
+      <MapControlButton type="button" aria-label="Exportar imagen" onClick={openExportImage}>
+        <Icons.Picture height="18px" />
+      </MapControlButton>
+    </ControlTooltip>
   );
 }

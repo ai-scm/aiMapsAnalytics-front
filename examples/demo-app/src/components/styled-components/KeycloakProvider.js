@@ -27,14 +27,18 @@ const ErrorMessage = styled.p`
   margin: 0;
 `;
 
+// In local dev mode, skip Keycloak auth to avoid redirect loops.
+const isLocalDev = NODE_ENV === 'local';
+
 const KeycloakProvider = ({children}) => {
-  const [authenticated, setAuthenticated] = useState(null);
+  const [authenticated, setAuthenticated] = useState(isLocalDev ? true : null);
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isLocalDev);
 
   useEffect(() => {
+    if (isLocalDev) return;
     keycloak
-      .init({onLoad: 'login-required'})
+      .init({onLoad: 'login-required', checkLoginIframe: false})
       .then(auth => {
         setAuthenticated(auth);
         setLoading(false);

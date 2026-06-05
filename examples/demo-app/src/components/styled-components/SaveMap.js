@@ -11,6 +11,7 @@ import {
 } from './apiSlice';
 import {captureMapImageBlob} from './exportMapImage';
 import downloadJsonFile from './downloadJsonFile';
+import ControlTooltip from './ControlTooltip';
 
 const MAX_DESCRIPTION_LENGTH = 255;
 
@@ -471,37 +472,40 @@ const SaveMap = ({uId, catalogMap, isExport, className}) => {
   return (
     <>
       <SaveMapControls className={className}>
-        <MapControlButton
-          type="button"
-          aria-label="Guardar como"
-          title="Guardar como"
-          disabled={busy}
-          onClick={handleOpenCreate}
-        >
-          <SaveIconOriginal height="18px" />
-        </MapControlButton>
-
-        {catalogUId && (
+        <ControlTooltip id="action-save-as" label="Guardar como">
           <MapControlButton
             type="button"
-            aria-label="Guardar"
-            title="Guardar"
+            aria-label="Guardar como"
             disabled={busy}
-            onClick={handleUpdate}
+            onClick={handleOpenCreate}
           >
-            <SaveAsMapIcon height="18px" />
+            <SaveIconOriginal height="18px" />
           </MapControlButton>
+        </ControlTooltip>
+
+        {catalogUId && (
+          <ControlTooltip id="action-save" label="Guardar">
+            <MapControlButton
+              type="button"
+              aria-label="Guardar"
+              disabled={busy}
+              onClick={handleUpdate}
+            >
+              <SaveAsMapIcon height="18px" />
+            </MapControlButton>
+          </ControlTooltip>
         )}
 
-        <MapControlButton
-          type="button"
-          aria-label="Exportar JSON"
-          title="Exportar JSON"
-          disabled={busy}
-          onClick={handleExportJson}
-        >
-          <Icons.BaseMap height="18px" />
-        </MapControlButton>
+        <ControlTooltip id="action-export-json" label="Exportar JSON">
+          <MapControlButton
+            type="button"
+            aria-label="Exportar JSON"
+            disabled={busy}
+            onClick={handleExportJson}
+          >
+            <Icons.BaseMap height="18px" />
+          </MapControlButton>
+        </ControlTooltip>
       </SaveMapControls>
 
       {open && (
