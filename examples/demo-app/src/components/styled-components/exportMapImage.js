@@ -1,147 +1,183 @@
-import {cleanupExportImage, startExportingImage} from '@kepler.gl/actions';
+import {cleanupExportImage, startExportingImage} from '@kepler.gl/actions'
 
-const DEFAULT_CONTAINER_SELECTOR = '#kepler-gl__map';
-const MIN_THUMBNAIL_BYTES = 1024;
-const YELLOW_PIXEL_THRESHOLD = 0.85;
+const DEFAULT_CONTAINER_SELECTOR = '#kepler-gl__map'
+const MIN_THUMBNAIL_BYTES = 1024
+const YELLOW_PIXEL_THRESHOLD = 0.85
 
-/**
- * Convierte un data URI (ej. "data:image/png;base64,....") en un Blob binario,
- * apto para adjuntar a un FormData.
- */
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function waitForAnimationFrame() {
+  return new Promise(resolve => {
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => resolve())
+      return
+    }
+
+    setTimeout(resolve, 16)
+  })
+}
+
+async function waitForFrames(count = 1) {
+  for (let index = 0; index < count; index += 1) {
+    await waitForAnimationFrame()
+  }
+}
+
+function normalizeError(error) {
+  if (error instanceof Error) {
+    return error
+  }
+
+  if (typeof error === 'string') {
+    return new Error(error)
+  }
+
+  return new Error('No se pudo exportar la imagen del mapa')
+}
+
 export function dataURItoBlob(dataURI) {
   if (!dataURI?.startsWith('data:image/png')) {
-    throw new Error('La captura del mapa no es un PNG válido');
+    throw new Error('La captura del mapa no es un PNG válido')
   }
-  const byteString = atob(dataURI.split(',')[1]);
-  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-  const ab = new ArrayBuffer(byteString.length);
-  const ia = new Uint8Array(ab);
-  for (let i = 0; i < byteString.length; i++) {
-    ia[i] = byteString.charCodeAt(i);
+
+  const byteString = atob(dataURI.split(',')[1])
+  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0]
+  const ab = new ArrayBuffer(byteString.length)
+  const ia = new Uint8Array(ab)
+
+  for (let i = 0; i < byteString.length; i += 1) {
+    ia[i] = byteString.charCodeAt(i)
   }
-  return new Blob([ab], {type: mimeString});
+
+  return new Blob([ab], {type: mimeString})
+}
+
+function getMapContainer(containerSelector) {
+  return document.querySelector(containerSelector)
 }
 
 function getMapDimensions(containerSelector) {
-  const container = document.querySelector(containerSelector);
-  const rect = container?.getBoundingClientRect();
-  const mapW = Math.round(rect?.width || window.innerWidth || 0);
-  const mapH = Math.round(rect?.height || window.innerHeight || 0);
+  const container = getMapContainer(containerSelector)
+  const rect = container?.getBoundingClientRect()
+  const mapW = Math.round(rect?.width || window.innerWidth || 0)
+  const mapH = Math.round(rect?.height || window.innerHeight || 0)
 
   if (mapW <= 0 || mapH <= 0) {
-    throw new Error('No se pudieron calcular las dimensiones del mapa para capturar el thumbnail');
+    throw new Error('No se pudieron calcular las dimensiones del mapa para capturar el thumbnail')
   }
 
-  return {mapW, mapH};
+  return {mapW, mapH}
+}
+
+function hasRenderableCanvas(container) {
+  const canvases = container?.querySelectorAll?.('canvas')
+  if (!canvases?.length) {
+    return false
+  }
+
+  return Array.from(canvases).some(canvas => {
+    const style = window.getComputedStyle(canvas)
+    return (
+      canvas.width > 0 &&
+      canvas.height > 0 &&
+      style.display !== 'none' &&
+      style.visibility !== 'hidden'
+    )
+  })
+}
+
+async function waitForMapRender(containerSelector, waitMs, stableFrames) {
+  const deadline = Date.now() + waitMs
+
+  while (Date.now() <= deadline) {
+    const container = getMapContainer(containerSelector)
+    const rect = container?.getBoundingClientRect()
+
+    if (rect?.width > 0 && rect?.height > 0 && hasRenderableCanvas(container)) {
+      await waitForFrames(stableFrames)
+      return
+    }
+
+    await waitForAnimationFrame()
+    await delay(80)
+  }
+
+  throw new Error('Timeout esperando a que el mapa termine de renderizar para generar el thumbnail')
 }
 
 function loadImage(dataURI) {
   return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('No se pudo leer la captura del mapa'));
-    image.src = dataURI;
-  });
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('No se pudo leer la captura del mapa'))
+    image.src = dataURI
+  })
 }
 
 async function assertNotYellowPlaceholder(dataURI) {
-  const image = await loadImage(dataURI);
-  const canvas = document.createElement('canvas');
-  const sampleW = 24;
-  const sampleH = 24;
-  canvas.width = sampleW;
-  canvas.height = sampleH;
+  const image = await loadImage(dataURI)
+  const canvas = document.createElement('canvas')
+  const sampleW = 24
+  const sampleH = 24
+  canvas.width = sampleW
+  canvas.height = sampleH
 
-  const context = canvas.getContext('2d');
+  const context = canvas.getContext('2d')
   if (!context) {
-    return;
+    return
   }
 
-  context.drawImage(image, 0, 0, sampleW, sampleH);
-  const pixels = context.getImageData(0, 0, sampleW, sampleH).data;
-  let visiblePixels = 0;
-  let yellowPixels = 0;
+  context.drawImage(image, 0, 0, sampleW, sampleH)
+  const pixels = context.getImageData(0, 0, sampleW, sampleH).data
+  let visiblePixels = 0
+  let yellowPixels = 0
 
   for (let i = 0; i < pixels.length; i += 4) {
-    const alpha = pixels[i + 3];
+    const alpha = pixels[i + 3]
     if (alpha < 16) {
-      continue;
+      continue
     }
 
-    visiblePixels += 1;
-    const red = pixels[i];
-    const green = pixels[i + 1];
-    const blue = pixels[i + 2];
+    visiblePixels += 1
+    const red = pixels[i]
+    const green = pixels[i + 1]
+    const blue = pixels[i + 2]
+
     if (red > 200 && green > 160 && blue < 90) {
-      yellowPixels += 1;
+      yellowPixels += 1
     }
   }
 
   if (visiblePixels && yellowPixels / visiblePixels >= YELLOW_PIXEL_THRESHOLD) {
-    throw new Error('La captura del mapa parece ser el placeholder amarillo, no el thumbnail real');
+    throw new Error('La captura del mapa parece ser el placeholder amarillo, no el thumbnail real')
   }
 }
 
-/**
- * Dispara la exportación de imagen de Kepler.gl y resuelve con el Blob PNG del
- * mapa actual (thumbnail). Equivalente a `downloadImageBlob` de la v1, pero con
- * polling acotado y limpieza de timers para evitar fugas si la imagen nunca llega.
- *
- * @param {Function} dispatch  store.dispatch
- * @param {Function} getState  store.getState (react-redux useStore().getState)
- * @param {Object}   [opts]
- * @param {number}   [opts.intervalMs=500]  frecuencia de polling
- * @param {number}   [opts.timeoutMs=15000] tiempo máximo de espera
- * @returns {Promise<Blob>}
- */
-export function captureMapImageBlob(dispatch, getState, opts = {}) {
-  const {
-    intervalMs = 500,
-    timeoutMs = 15000,
-    containerSelector = DEFAULT_CONTAINER_SELECTOR,
-    minBytes = MIN_THUMBNAIL_BYTES,
-    ratio = '16:9',
-    resolution = '1x',
-    center = false
-  } = opts;
+function requestImageExport(dispatch, getState, options) {
+  const {ratio, resolution, center, mapH, mapW, intervalMs, timeoutMs} = options
 
   return new Promise((resolve, reject) => {
-    let settled = false;
-    let validating = false;
-    let intervalId = null;
-    let timeoutId = null;
+    let intervalId = null
+    let timeoutId = null
 
-    const cleanup = () => {
-      if (intervalId) clearInterval(intervalId);
-      if (timeoutId) clearTimeout(timeoutId);
-      dispatch(cleanupExportImage());
-    };
-
-    const fail = error => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(error);
-    };
-
-    const complete = blob => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(blob);
-    };
-
-    let mapW;
-    let mapH;
-    try {
-      ({mapW, mapH} = getMapDimensions(containerSelector));
-    } catch (error) {
-      reject(error);
-      return;
+    const cleanupTimers = () => {
+      if (intervalId) clearInterval(intervalId)
+      if (timeoutId) clearTimeout(timeoutId)
     }
 
-    dispatch(cleanupExportImage());
+    const rejectWith = error => {
+      cleanupTimers()
+      reject(normalizeError(error))
+    }
 
+    const resolveWith = imageDataUri => {
+      cleanupTimers()
+      resolve(imageDataUri)
+    }
+
+    dispatch(cleanupExportImage())
     dispatch(
       startExportingImage({
         ratio,
@@ -150,38 +186,85 @@ export function captureMapImageBlob(dispatch, getState, opts = {}) {
         mapH,
         mapW
       })
-    );
+    )
 
-    const check = () => {
-      const exportImage = getState()?.demo?.keplerGl?.map?.uiState?.exportImage;
+    const checkExportState = () => {
+      const exportImage = getState()?.demo?.keplerGl?.map?.uiState?.exportImage
+
       if (exportImage?.error) {
-        fail(exportImage.error);
-        return;
+        rejectWith(exportImage.error)
+        return
       }
+
       if (exportImage?.processing) {
-        return;
+        return
       }
-      const imageDataUri = exportImage?.imageDataUri;
-      if (imageDataUri && !validating) {
-        validating = true;
-        try {
-          const blob = dataURItoBlob(imageDataUri);
-          if (blob.size < minBytes) {
-            throw new Error(`La captura del mapa es demasiado pequeña (${blob.size} bytes)`);
-          }
-          assertNotYellowPlaceholder(imageDataUri).then(() => complete(blob)).catch(fail);
-        } catch (error) {
-          fail(error);
-        }
-      }
-    };
 
-    intervalId = setInterval(check, intervalMs);
+      if (exportImage?.imageDataUri) {
+        resolveWith(exportImage.imageDataUri)
+      }
+    }
+
+    intervalId = setInterval(checkExportState, intervalMs)
     timeoutId = setTimeout(() => {
-      fail(new Error('Timeout esperando la captura de imagen del mapa'));
-    }, timeoutMs);
+      rejectWith(new Error('Timeout esperando la captura de imagen del mapa'))
+    }, timeoutMs)
 
-    // Comprobación inmediata por si la imagen ya estuviese disponible.
-    check();
-  });
+    checkExportState()
+  })
+}
+
+export async function captureMapImageBlob(dispatch, getState, opts = {}) {
+  const {
+    intervalMs = 300,
+    timeoutMs = 24000,
+    containerSelector = DEFAULT_CONTAINER_SELECTOR,
+    minBytes = MIN_THUMBNAIL_BYTES,
+    ratio = '16:9',
+    resolution = '1x',
+    center = false,
+    retryCount = 3,
+    retryDelayMs = 350,
+    renderWaitMs = 2500,
+    stableFrames = 3
+  } = opts
+
+  const attempts = Math.max(1, retryCount)
+  const perAttemptTimeout = Math.max(4000, Math.floor(timeoutMs / attempts))
+  let lastError = null
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await waitForMapRender(containerSelector, renderWaitMs, stableFrames)
+      const {mapW, mapH} = getMapDimensions(containerSelector)
+      const imageDataUri = await requestImageExport(dispatch, getState, {
+        ratio,
+        resolution,
+        center,
+        mapH,
+        mapW,
+        intervalMs,
+        timeoutMs: perAttemptTimeout
+      })
+
+      const blob = dataURItoBlob(imageDataUri)
+      if (blob.size < minBytes) {
+        throw new Error(`La captura del mapa es demasiado pequeña (${blob.size} bytes)`)
+      }
+
+      await assertNotYellowPlaceholder(imageDataUri)
+      dispatch(cleanupExportImage())
+      return blob
+    } catch (error) {
+      lastError = normalizeError(error)
+      dispatch(cleanupExportImage())
+
+      if (attempt < attempts) {
+        await waitForFrames(stableFrames)
+        await delay(retryDelayMs)
+      }
+    }
+  }
+
+  throw lastError || new Error('No se pudo capturar el thumbnail del mapa')
 }
