@@ -8,7 +8,11 @@ import Task, {withTask} from 'react-palm/tasks';
 import {aiAssistantReducer} from '@kepler.gl/ai-assistant';
 import {EXPORT_MAP_FORMATS} from '@kepler.gl/constants';
 import {processGeojson, processRowObject, processArrowTable} from '@kepler.gl/processors';
-import keplerGlReducer, {combinedUpdaters, uiStateUpdaters} from '@kepler.gl/reducers';
+import keplerGlReducer, {
+  combinedUpdaters,
+  mapStyleUpdaters,
+  uiStateUpdaters
+} from '@kepler.gl/reducers';
 import KeplerGlSchema from '@kepler.gl/schemas';
 import {KeplerTable} from '@kepler.gl/table';
 import {getApplicationConfig} from '@kepler.gl/utils';
@@ -22,12 +26,14 @@ import {
   LOAD_REMOTE_RESOURCE_SUCCESS,
   LOAD_REMOTE_DATASET_PROCESSED_SUCCESS,
   LOAD_REMOTE_RESOURCE_ERROR,
+  SET_CATALOG_MAP_METADATA,
   SET_SAMPLE_LOADING_STATUS,
   loadRemoteDatasetProcessedSuccessAction
 } from '../actions';
 
 import {CLOUD_PROVIDERS_CONFIGURATION} from '../constants/default-settings';
 import {generateHashId} from '../utils/strings';
+import {getCatalogMapStyles, getDefaultCatalogStyleId} from '../components/styled-components/mapStyles';
 
 // initialize kepler demo-app with DuckDB plugin
 /*
@@ -57,6 +63,11 @@ const initialAppState = {
   loaded: false,
   sampleMaps: [], // this is used to store sample maps fetch from a remote json file
   isMapLoading: false, // determine whether we are loading a sample map,
+  catalogMap: {
+    uId: null,
+    url: '',
+    fileName: ''
+  },
   error: null // contains error when loading/retrieving data/configuration
   // {
   //   status: null,
@@ -78,12 +89,21 @@ export const appReducer = handleActions(
     [SET_SAMPLE_LOADING_STATUS]: (state, action) => ({
       ...state,
       isMapLoading: action.isMapLoading
+    }),
+    [SET_CATALOG_MAP_METADATA]: (state, action) => ({
+      ...state,
+      catalogMap: {
+        ...state.catalogMap,
+        ...action.metadata
+      }
     })
   },
   initialAppState
 );
 
 const {DEFAULT_EXPORT_MAP} = uiStateUpdaters;
+const catalogMapStyles = getCatalogMapStyles();
+const {INITIAL_MAP_STYLE} = mapStyleUpdaters;
 
 // combine app reducer and keplerGl reducer
 // to mimic the reducer state of kepler.gl website
@@ -93,6 +113,14 @@ const demoReducer = combineReducers({
     // In order to provide single file export functionality
     // we are going to set the mapbox access token to be used
     // in the exported file
+    mapStyle: {
+      styleType: getDefaultCatalogStyleId(),
+      mapStyles: {
+        ...INITIAL_MAP_STYLE.mapStyles,
+        ...catalogMapStyles
+      },
+      mapboxApiAccessToken: CLOUD_PROVIDERS_CONFIGURATION.MAPBOX_TOKEN
+    },
     uiState: {
       exportMap: {
         ...DEFAULT_EXPORT_MAP,

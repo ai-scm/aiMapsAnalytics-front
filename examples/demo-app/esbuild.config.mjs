@@ -9,7 +9,7 @@ import process from 'node:process';
 import fs from 'node:fs';
 import {spawn} from 'node:child_process';
 import {join} from 'node:path';
-import KeplerPackage from '../../package.json' assert {type: 'json'};
+import KeplerPackage from '../../package.json' with {type: 'json'};
 
 const args = process.argv;
 
@@ -59,7 +59,11 @@ const requiredEnvVariables = [
   'FoursquareClientId',
   'FoursquareDomain',
   'FoursquareAPIURL',
-  'FoursquareUserMapsURL'
+  'FoursquareUserMapsURL',
+  'KEYCLOAK_URL',
+  'KEYCLOAK_REALM',
+  'KEYCLOAK_ID',
+  'API_URL'
 ];
 
 /**
@@ -101,6 +105,10 @@ const config = {
     'process.env.FoursquareDomain': JSON.stringify(process.env.FoursquareDomain || ''),
     'process.env.FoursquareAPIURL': JSON.stringify(process.env.FoursquareAPIURL || ''),
     'process.env.FoursquareUserMapsURL': JSON.stringify(process.env.FoursquareUserMapsURL || ''),
+    'process.env.KEYCLOAK_URL': JSON.stringify(process.env.KEYCLOAK_URL || ''),
+    'process.env.KEYCLOAK_REALM': JSON.stringify(process.env.KEYCLOAK_REALM || ''),
+    'process.env.KEYCLOAK_ID': JSON.stringify(process.env.KEYCLOAK_ID || ''),
+    'process.env.API_URL': JSON.stringify(process.env.API_URL || ''),
     'process.env.NODE_ENV': NODE_ENV
   },
   plugins: [

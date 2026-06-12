@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mock catálogo MapsAnalytics</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #11141a;
+        color: #f4f6fa;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 56px;
+        padding: 0 16px;
+        border-bottom: 1px solid #2d3340;
+        background: #171b23;
+      }
+
+      button {
+        border: 0;
+        border-radius: 4px;
+        background: #1fbad6;
+        color: #041014;
+        cursor: pointer;
+        font-weight: 700;
+        padding: 8px 12px;
+      }
+
+      code {
+        color: #8be9fd;
+      }
+
+      iframe {
+        display: block;
+        width: 100vw;
+        height: calc(100vh - 56px);
+        border: 0;
+      }
+
+      .status {
+        margin-left: auto;
+        color: #c4cad5;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Mock catálogo</strong>
+      <button id="sendMap">Enviar mapa local</button>
+      <span>Mapa: <code id="mapUrl"></code></span>
+      <span class="status" id="status">Esperando iframe...</span>
+    </header>
+    <iframe id="mapsFrame" title="MapsAnalytics V2"></iframe>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const appUrl = params.get('app') || 'http://localhost:8080';
+      const mapUrl = new URL('/maps/kepler2.gl.json', window.location.origin).href;
+      const iframe = document.getElementById('mapsFrame');
+      const status = document.getElementById('status');
+      const button = document.getElementById('sendMap');
+
+      iframe.src = appUrl;
+      document.getElementById('mapUrl').textContent = mapUrl;
+
+      function sendMapToIframe() {
+        iframe.contentWindow.postMessage(
+          {
+            type: 'dynamicURL',
+            url: mapUrl,
+            uId: 'local-catalog-kepler2'
+          },
+          new URL(appUrl).origin
+        );
+        status.textContent = 'Mapa enviado al iframe';
+      }
+
+      window.addEventListener('message', event => {
+        if (event.source !== iframe.contentWindow) {
+          return;
+        }
+
+        if (event.data?.type === 'FRAME') {
+          status.textContent = 'Iframe listo. Enviando mapa...';
+          window.setTimeout(sendMapToIframe, 500);
+          return;
+        }
+
+        status.textContent = `Mensaje recibido: ${JSON.stringify(event.data)}`;
+      });
+
+      button.addEventListener('click', sendMapToIframe);
+    </script>
+  </body>
+</html>

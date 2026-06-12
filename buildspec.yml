@@ -1,0 +1,36 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+  pre_build:
+    commands:
+      - aws --version
+  build:
+    commands:
+      - echo Build started on `date`
+      - zip -r $PRODUCT_NAME.zip . -x "buildspec.yml" -x "Dockerfile" -x "version.txt"
+      - node make-file-version.js
+      - VERSION=$(cat version.txt)
+      - |
+        if echo "$VERSION" | grep -Eq -- "-dev\.[0-9]+$"; then
+          echo "Versión de desarrollo detectada ($VERSION). Omitiendo actualizaciones de DynamoDB, local CHANGELOG y Cloudfront."
+        else
+          echo "Versión estable detectada ($VERSION)."
+          echo "Actualizando versión de AIMapsAnalyticsFront en la tabla houndoc_component_master..."
+          aws dynamodb update-item --table-name houndoc_component_master --key '{"component": { "S": "AIMapsAnalyticsFront" } }' --update-expression "SET version = :v" --expression-attribute-values "{\":v\": {\"S\": \"$VERSION\"}}" --region $AWS_DEFAULT_REGION
+          echo "Actualizando versión de AIMaps en la tabla houndoc_product_master..."
+          PRODUCT_VERSION=$(echo $VERSION | cut -d. -f1,2)
+          aws dynamodb update-item --table-name houndoc_product_master --key '{ "product": { "S": "AIMaps" } }' --update-expression "SET version = :v" --expression-attribute-values "{\":v\": { \"S\": \"$PRODUCT_VERSION\" } }" --region $AWS_DEFAULT_REGION
+          echo "Uploading to CHANGELOG ...."
+          aws s3 cp CHANGELOG.md s3://houndoc-changelog/MD/AIMapsAnalyticsFront.md
+          aws cloudfront create-invalidation --distribution-id EIRU1D5WYXMJD --paths "/*"
+        fi
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Uploading to S3 ....
+      - aws s3 cp $PRODUCT_NAME.zip s3://$BUCKET_NAME/$TYPE/$PRODUCT_NAME/$VERSION/$PRODUCT_NAME.zip
+      - echo "Uploading to S3 completed"
+      - aws s3 cp CHANGELOG.md s3://$CHANGELOG_BUCKET/MD/$CHANGELOG_FILE_NAME
+      - aws cloudfront create-invalidation --distribution-id $CHANGELOG_DISTRIBUTION_ID --paths "/*"

@@ -1,0 +1,17 @@
+[
+  {
+    "name": "streets",
+    "mapStyle": "https://www.houndoc.ai/maps-assets/streets.json",
+    "icon": "https://www.houndoc.ai/maps-assets/streets.png"
+  },
+  {
+    "name": "streets-light",
+    "mapStyle": "https://www.houndoc.ai/maps-assets/streets-light.json",
+    "icon": "https://www.houndoc.ai/maps-assets/streets-v2-light.png"
+  },
+  {
+    "name": "streets-dark",
+    "mapStyle": "https://www.houndoc.ai/maps-assets/streets-dark.json",
+    "icon": "https://www.houndoc.ai/maps-assets/streets-v2-dark.png"
+  }
+]

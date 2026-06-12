@@ -18,7 +18,7 @@ import {
   AiAssistantPanel,
   setMapBoundary
 } from '@kepler.gl/ai-assistant';
-import {panelBorderColor, theme} from '@kepler.gl/styles';
+import {panelBorderColor} from '@kepler.gl/styles';
 import {ParsedConfig} from '@kepler.gl/types';
 import {getApplicationConfig} from '@kepler.gl/utils';
 import {SqlPanel} from '@kepler.gl/duckdb/components';
@@ -34,18 +34,23 @@ import {
   loadRemoteMap,
   loadSampleConfigurations,
   onExportFileSuccess,
-  onLoadCloudMapSuccess
+  onLoadCloudMapSuccess,
+  setCatalogMapMetadata
 } from './actions';
 
 import {
   loadCloudMap,
   addDataToMap,
+  loadFiles,
   replaceDataInMap,
+  setLocale,
+  toggleSidePanel,
   toggleMapControl,
   toggleModal
 } from '@kepler.gl/actions';
 import {CLOUD_PROVIDERS} from './cloud-providers';
 import {Panel, PanelGroup, PanelResizeHandle} from 'react-resizable-panels';
+import {setMapLoadError} from './components/styled-components/mapLoadSlice';
 
 const KeplerGl = require('@kepler.gl/components').injectComponents([
   replaceLoadDataModal(),
@@ -71,8 +76,15 @@ import sampleAnimateTrip, {
 import sampleIconCsv from './data/sample-icon-csv';
 import sampleGpsData from './data/sample-gps-data';
 import sampleRowData, {config as rowDataConfig} from './data/sample-row-data';
-import {sampleFlowData, config as flowDataConfig} from './data/sample-flow-data';
-import {processCsvData, processGeojson, processRowObject} from '@kepler.gl/processors';
+import {
+  processCsvData,
+  processGeojson,
+  processRowObject,
+  processKeplerglJSON
+} from '@kepler.gl/processors';
+import {useLazyGetMapFromCatalogQuery} from './components/styled-components/apiSlice';
+import {getCatalogMapStyles} from './components/styled-components/mapStyles';
+import {mapsAnalyticsTheme} from './components/styled-components/theme';
 
 /* eslint-enable no-unused-vars */
 
@@ -89,6 +101,7 @@ function shouldForwardProp(propName, target) {
 const BannerHeight = 48;
 const BannerKey = `banner-${FormLink}`;
 const keplerGlGetState = state => state.demo.keplerGl;
+const catalogMapStyles = Object.values(getCatalogMapStyles());
 
 const GlobalStyle = styled.div`
   font-family: ff-clan-web-pro, 'Helvetica Neue', Helvetica, sans-serif;
@@ -116,6 +129,128 @@ const GlobalStyle = styled.div`
   a {
     text-decoration: none;
     color: ${props => props.theme.labelColor};
+  }
+
+  .kepler-gl {
+    color: ${props => props.theme.textColor};
+
+    .side-panel__panel-header__top {
+      justify-content: flex-end;
+    }
+
+    .button {
+      letter-spacing: 0;
+    }
+
+    .button:not(.map-control-button) {
+      border: ${props => props.theme.primaryBtnBorder || 0};
+      background-color: ${props => props.theme.primaryBtnBgd};
+      color: ${props => props.theme.primaryBtnColor};
+    }
+
+    .button:not(.map-control-button):hover,
+    .button:not(.map-control-button):focus,
+    .button:not(.map-control-button):active,
+    .button:not(.map-control-button).active {
+      background-color: ${props => props.theme.primaryBtnBgdHover};
+      color: ${props => props.theme.primaryBtnActColor};
+    }
+
+    .button.secondary,
+    .button.cancel,
+    .button.link {
+      border: ${props => props.theme.secondaryBtnBorder};
+      background-color: ${props => props.theme.secondaryBtnBgd};
+      color: ${props => props.theme.secondaryBtnColor};
+    }
+
+    .button.secondary:hover,
+    .button.cancel:hover,
+    .button.link:hover {
+      background-color: ${props => props.theme.secondaryBtnBgdHover};
+      color: ${props => props.theme.secondaryBtnActColor};
+    }
+
+    .map-control-button {
+      border: ${props => props.theme.floatingBtnBorder};
+      background-color: ${props => props.theme.floatingBtnBgd};
+      color: ${props => props.theme.floatingBtnColor};
+      box-shadow: ${props => props.theme.panelBoxShadow};
+    }
+
+    .map-control-button:hover,
+    .map-control-button:focus,
+    .map-control-button:active,
+    .map-control-button.active,
+    .map-control-button.isActive {
+      border: ${props => props.theme.floatingBtnBorderHover};
+      background-color: ${props => props.theme.floatingBtnBgdHover};
+      color: ${props => props.theme.floatingBtnActColor};
+    }
+
+    input,
+    textarea,
+    select,
+    .item-selector,
+    .typeahead,
+    .item-selector__dropdown,
+    .item-selector__dropdown__value {
+      border-color: ${props => props.theme.inputBorderColor};
+      background-color: ${props => props.theme.inputBgd};
+      color: ${props => props.theme.inputColor};
+    }
+
+    input:hover,
+    textarea:hover,
+    select:hover,
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: ${props => props.theme.inputBorderActiveColor};
+      background-color: ${props => props.theme.inputBgdActive};
+      color: ${props => props.theme.inputColor};
+    }
+
+    .list,
+    .list__section,
+    .list__item,
+    .typeahead__dropdown,
+    .item-selector__dropdown-list {
+      background-color: ${props => props.theme.dropdownListBgd};
+      color: ${props => props.theme.textColor};
+      border-color: ${props => props.theme.dropdownListBorderTop};
+    }
+
+    .list__item:hover,
+    .list__item.hover,
+    .list__item.selected {
+      background-color: ${props => props.theme.dropdownListHighlightBg};
+      color: ${props => props.theme.textColorHl};
+    }
+
+    .list__item__anchor,
+    .list__item__anchor:visited {
+      color: ${props => props.theme.textColor};
+    }
+
+    .list__item:hover .list__item__anchor,
+    .list__item.hover .list__item__anchor,
+    .list__item.selected .list__item__anchor {
+      color: ${props => props.theme.textColorHl};
+    }
+
+    .side-panel,
+    .side-panel__header,
+    .side-panel-panel__content,
+    .side-panel-section {
+      background-color: ${props => props.theme.sidePanelBg};
+      color: ${props => props.theme.textColor};
+    }
+
+    .side-panel-panel__header,
+    .side-panel-panel__content {
+      border-color: ${props => props.theme.panelBorderColor};
+    }
   }
 `;
 
@@ -152,10 +287,59 @@ const StyledVerticalResizeHandle = styled(PanelResizeHandle)`
   }
 `;
 
+const CatalogMapLoading = styled.div`
+  position: absolute;
+  left: 50%;
+  top: 24px;
+  z-index: 20;
+  min-width: 240px;
+  transform: translateX(-50%);
+  border-radius: 4px;
+  background: ${props => props.theme.sidePanelBg || '#242730'};
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  color: ${props => props.theme.textColor || '#f7f7f7'};
+  padding: 12px;
+`;
+
+const CatalogMapLoadingText = styled.div`
+  font-size: 12px;
+  margin-bottom: 8px;
+`;
+
+const CatalogMapLoadingTrack = styled.div`
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: ${props => props.theme.panelBorder || '#3f4550'};
+`;
+
+const CatalogMapLoadingBar = styled.div`
+  width: ${props => props.progress}%;
+  height: 100%;
+  transition: width 160ms ease;
+  background: ${props => props.theme.activeColor || '#1fbad6'};
+`;
+
+const CatalogMapError = styled(CatalogMapLoading)`
+  color: ${props => props.theme.errorColor || '#ff4d4d'};
+`;
+
+function getCatalogMapFilename(url) {
+  try {
+    return new URL(url).pathname.split('/').pop() || 'catalog-map.json';
+  } catch (error) {
+    return url.split('/').pop()?.split('?')[0] || 'catalog-map.json';
+  }
+}
+
 const App = props => {
   const [showBanner, toggleShowBanner] = useState(false);
   const {params: {id, provider} = {}, location: {query = {}} = {}} = props;
   const dispatch = useDispatch();
+  const [triggerLoadCatalogMap] = useLazyGetMapFromCatalogQuery();
+  const {isLoading: isCatalogMapLoading, progress: catalogMapProgress, error: catalogMapError} =
+    useSelector(state => state.mapLoad);
+  const catalogMap = useSelector(state => state.demo.app.catalogMap);
 
   // TODO find another way to check for existence of duckDb plugin
   const duckDbPluginEnabled = (getApplicationConfig().plugins || []).some(p => p.name === 'duckdb');
@@ -219,6 +403,62 @@ const App = props => {
     // no dependencies, as this was part of componentDidMount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    Window.parent?.postMessage({type: 'FRAME', text: 'Frame cargado'}, '*');
+  }, []);
+
+  useEffect(() => {
+    dispatch(setLocale('es'));
+  }, [dispatch]);
+
+  /**
+   * Listen for the map URL sent by the catalog (MapsAnalytics) via postMessage.
+   * On `dynamicURL`, download the map JSON (with progress) and inject it into
+   * Kepler. The HTTP client lives in components/styled-components/apiSlice.
+   */
+  useEffect(() => {
+    const handleMessage = event => {
+      if (event.source !== Window.parent) {
+        return;
+      }
+      if (event.data?.type !== 'dynamicURL') {
+        return;
+      }
+      const dynamicURL = event.data.url;
+      if (!dynamicURL) {
+        return;
+      }
+      const fileName = getCatalogMapFilename(dynamicURL);
+      dispatch(setCatalogMapMetadata({url: dynamicURL, uId: event.data.uId || null, fileName}));
+      dispatch(toggleSidePanel(null));
+      triggerLoadCatalogMap(dynamicURL)
+        .unwrap()
+        .then(data => {
+          try {
+            const keplerGL = processKeplerglJSON(data);
+            if (keplerGL) {
+              dispatch(addDataToMap(keplerGL));
+              return;
+            }
+            throw new Error('Catalog map JSON could not be processed as a Kepler map');
+          } catch (error) {
+            const file = new File([new Blob([JSON.stringify(data)])], fileName, {
+              type: 'application/json'
+            });
+            dispatch(loadFiles([file]));
+          }
+        })
+        .catch(error => {
+          dispatch(setMapLoadError(String(error)));
+          // eslint-disable-next-line no-console
+          console.error('Error loading map from catalog:', error);
+        });
+    };
+
+    Window.addEventListener('message', handleMessage);
+    return () => Window.removeEventListener('message', handleMessage);
+  }, [dispatch, triggerLoadCatalogMap]);
 
   /**
    * Update map boundary when view state changes, used by ai-assistant to
@@ -653,7 +893,7 @@ const App = props => {
 
   return (
     <StyleSheetManager shouldForwardProp={shouldForwardProp}>
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={mapsAnalyticsTheme}>
         <GlobalStyle
         // this is to apply the same modal style as kepler.gl core
         // because styled-components doesn't always return a node
@@ -672,6 +912,23 @@ const App = props => {
               <Announcement onDisable={_disableBanner} />
             </Banner>
             <div style={CONTAINER_STYLE}>
+              {isCatalogMapLoading && (
+                <CatalogMapLoading>
+                  <CatalogMapLoadingText>
+                    Cargando mapa del catálogo
+                    {catalogMap.fileName ? `: ${catalogMap.fileName}` : ''}
+                  </CatalogMapLoadingText>
+                  <CatalogMapLoadingTrack>
+                    <CatalogMapLoadingBar progress={catalogMapProgress} />
+                  </CatalogMapLoadingTrack>
+                </CatalogMapLoading>
+              )}
+              {catalogMapError && (
+                <CatalogMapError>
+                  <CatalogMapLoadingText>Error cargando mapa del catálogo</CatalogMapLoadingText>
+                  <CatalogMapLoadingText>{catalogMapError}</CatalogMapLoadingText>
+                </CatalogMapError>
+              )}
               <PanelGroup direction="horizontal">
                 <Panel defaultSize={isAiAssistantPanelOpen ? 70 : 100}>
                   <PanelGroup direction="vertical">
@@ -684,6 +941,7 @@ const App = props => {
                             getState={keplerGlGetState}
                             width={width}
                             height={height}
+                            mapStyles={catalogMapStyles}
                             cloudProviders={CLOUD_PROVIDERS}
                             localeMessages={messages}
                             onExportToCloudSuccess={onExportFileSuccess}

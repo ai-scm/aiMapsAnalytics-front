@@ -1,14 +1,16 @@
 {
   "scripts": {
-    "start": "node esbuild.config.mjs --start",
-    "build": "node esbuild.config.mjs --build",
+    "start": "node --env-file-if-exists=../../.env esbuild.config.mjs --start",
+    "build": "node --env-file-if-exists=../../.env esbuild.config.mjs --build",
     "deploy": "yarn build && netlify deploy -d dist",
     "deploy:prod": "yarn build && netlify deploy -d dist --prod",
-    "start:local": "NODE_ENV=local node esbuild.config.mjs --start",
-    "start:local-ai": "NODE_ENV=local node esbuild.config.mjs --start --env.ai",
-    "start:local-deck": "NODE_ENV=local node esbuild.config.mjs --start --env.deck",
-    "start:local-deck-src": "NODE_ENV=local node esbuild.config.mjs --start --env.deck_src",
-    "start:local-loaders-src": "NODE_ENV=local node esbuild.config.mjs --start --env.loaders_src"
+    "start:local": "NODE_ENV=local node --env-file-if-exists=../../.env esbuild.config.mjs --start",
+    "start:local-ai": "NODE_ENV=local node --env-file-if-exists=../../.env esbuild.config.mjs --start --env.ai",
+    "start:local-deck": "NODE_ENV=local node --env-file-if-exists=../../.env esbuild.config.mjs --start --env.deck",
+    "start:local-deck-src": "NODE_ENV=local node --env-file-if-exists=../../.env esbuild.config.mjs --start --env.deck_src",
+    "start:local-loaders-src": "NODE_ENV=local node --env-file-if-exists=../../.env esbuild.config.mjs --start --env.loaders_src",
+    "start:local-hubble-src": "NODE_ENV=local node --env-file-if-exists=../../.env esbuild.config.mjs --start --env.hubble_src",
+    "catalog:mock": "node scripts/catalog-local-server.mjs"
   },
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.1.2",
@@ -25,21 +27,24 @@
     "@kepler.gl/schemas": "^3.2.0",
     "@kepler.gl/styles": "^3.2.0",
     "@kepler.gl/utils": "^3.2.0",
-    "@loaders.gl/arrow": "^4.3.2",
-    "@loaders.gl/core": "^4.3.2",
-    "@loaders.gl/csv": "^4.3.2",
-    "@loaders.gl/json": "^4.3.2",
-    "@loaders.gl/parquet": "^4.3.2",
+    "@loaders.gl/arrow": "4.3.2",
+    "@loaders.gl/core": "4.3.2",
+    "@loaders.gl/csv": "4.3.2",
+    "@loaders.gl/json": "4.3.2",
+    "@loaders.gl/parquet": "4.3.2",
     "@openassistant/core": "^0.5.17",
     "@openassistant/ui": "^0.5.17",
+    "@reduxjs/toolkit": "^2.12.0",
     "@types/classnames": "^2.3.1",
     "@types/keymirror": "^0.1.1",
     "apache-arrow": ">=15.0.0",
+    "axios": "^1.6.7",
     "classnames": "^2.2.1",
     "d3-format": "^2.0.0",
     "dropbox": "^4.0.12",
     "esbuild": "^0.25.0",
     "global": "^4.3.0",
+    "keycloak-js": "25.0.1",
     "keymirror": "^0.1.1",
     "markdown-to-jsx": "^7.7.6",
     "prop-types": "^15.6.0",
@@ -61,9 +66,24 @@
   "resolutions": {
     "@luma.gl/core": "8.5.21",
     "@luma.gl/webgl": "8.5.21",
-    "@deck.gl/core": "8.9.27",
-    "@deck.gl/extensions": "8.9.27",
-    "react-vis": "1.11.7"
+    "@deck.gl/core": "8.9.36",
+    "@deck.gl/extensions": "8.9.36",
+    "@deck.gl/layers": "8.9.36",
+    "@deck.gl/geo-layers": "8.9.36",
+    "@deck.gl/aggregation-layers": "8.9.36",
+    "@deck.gl/mesh-layers": "8.9.36",
+    "@deck.gl/react": "8.9.36",
+    "react-vis": "1.11.7",
+    "@loaders.gl/arrow": "4.3.2",
+    "@loaders.gl/core": "4.3.2",
+    "@loaders.gl/csv": "4.3.2",
+    "@loaders.gl/gis": "4.3.2",
+    "@loaders.gl/json": "4.3.2",
+    "@loaders.gl/loader-utils": "4.3.2",
+    "@loaders.gl/parquet": "4.3.2",
+    "@loaders.gl/polyfills": "4.3.2",
+    "@loaders.gl/schema": "4.3.2",
+    "@loaders.gl/wkt": "4.3.2"
   },
   "engines": {
     "node": ">=20"
@@ -74,7 +94,7 @@
   },
   "packageManager": "yarn@4.4.0",
   "devDependencies": {
-    "@dotenv-run/esbuild": "^1.5.0",
+    "@dotenv-run/esbuild": "^1.5.2",
     "esbuild-plugin-replace": "^1.4.0"
   }
 }

@@ -13,13 +13,21 @@ import {enhanceReduxMiddleware} from '@kepler.gl/reducers';
 import Window from 'global/window';
 
 import demoReducer from './reducers/index';
+import {apiSlice} from './components/styled-components/apiSlice';
+import mapLoadReducer from './components/styled-components/mapLoadSlice';
 
 const reducers = combineReducers({
   demo: demoReducer,
-  routing: routerReducer
+  routing: routerReducer,
+  mapLoad: mapLoadReducer,
+  [apiSlice.reducerPath]: apiSlice.reducer
 });
 
-export const middlewares = enhanceReduxMiddleware([thunk, routerMiddleware(browserHistory)]);
+export const middlewares = enhanceReduxMiddleware([
+  thunk,
+  routerMiddleware(browserHistory),
+  apiSlice.middleware
+]);
 
 const NOISY_ACTIONS = new Set(['@@kepler.gl/MOUSE_MOVE', '@@kepler.gl/LAYER_HOVER']);
 
