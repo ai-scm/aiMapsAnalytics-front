@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright contributors to the kepler.gl project
 
-import React, {useMemo} from 'react';
+import React, {useEffect, useRef, useMemo} from 'react';
 import styled from 'styled-components';
 import truncate from 'lodash/truncate';
 import {CompareType, Field, Merge, TooltipField} from '@kepler.gl/types';
@@ -45,11 +45,16 @@ const StyledTable = styled.table`
       color: ${props => props.theme.negativeBtnActBgd};
     }
   }
-  & .row__value,
   & .row__name {
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: no-wrap;
+    white-space: nowrap;
+  }
+  & .row__value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: pre-line;
+    max-width: 250px;
   }
 `;
 
@@ -65,11 +70,39 @@ interface RowProps {
   value: string;
   deltaValue?: string | null;
   url?: string;
+  isComparing?: boolean;
 }
 
 const TOOLTIP_VALUE_MAX_LENGTH = 256;
 
-const Row: React.FC<RowProps> = ({name, value, deltaValue, url}) => {
+/**
+ * Image component that cleans up resources on unmount to prevent memory leaks.
+ * Revokes blob/object URLs and clears the image src to release memory.
+ */
+const TooltipImage: React.FC<{src: string}> = ({src}) => {
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    return () => {
+      // Revoke blob URLs to free memory
+      if (src && (src.startsWith('blob:') || src.startsWith('data:'))) {
+        try {
+          URL.revokeObjectURL(src);
+        } catch (e) {
+          // ignore errors from non-object URLs
+        }
+      }
+      // Clear the image src to release the decoded image from memory
+      if (imgRef.current) {
+        imgRef.current.src = '';
+      }
+    };
+  }, [src]);
+
+  return <img ref={imgRef} src={src} />;
+};
+
+const Row: React.FC<RowProps> = ({name, value, deltaValue, url, isComparing}) => {
   // Set 'url' to 'value' if it looks like a url
   if (!url && value && typeof value === 'string' && value.match(/^http/)) {
     url = value;
@@ -86,26 +119,28 @@ const Row: React.FC<RowProps> = ({name, value, deltaValue, url}) => {
       <td className="row__name">{asImg ? name.replace('<img>', '') : name}</td>
       <td className="row__value">
         {asImg ? (
-          <img src={value} />
+          <TooltipImage src={value} />
         ) : url ? (
           <a target="_blank" rel="noopener noreferrer" href={url}>
             {displayValue}
           </a>
         ) : (
-          <>
-            <span>{displayValue}</span>
-            {notNullorUndefined(deltaValue) ? (
-              <span
-                className={`row__delta-value ${
-                  deltaValue?.toString().charAt(0) === '+' ? 'positive' : 'negative'
-                }`}
-              >
-                {deltaValue}
-              </span>
-            ) : null}
-          </>
+          <span>{displayValue}</span>
         )}
       </td>
+      {isComparing ? (
+        <td
+          className={`row__delta-value ${
+            notNullorUndefined(deltaValue)
+              ? deltaValue?.toString().charAt(0) === '+'
+                ? 'positive'
+                : 'negative'
+              : ''
+          }`}
+        >
+          {deltaValue ?? ''}
+        </td>
+      ) : null}
     </tr>
   );
 };
@@ -183,6 +218,7 @@ const EntryInfoRow: React.FC<EntryInfoRowProps> = ({
       name={field.displayName || field.name}
       value={displayValue}
       deltaValue={displayDeltaValue}
+      isComparing={Boolean(primaryData)}
     />
   );
 };
@@ -269,7 +305,7 @@ const LayerHoverInfoFactory = () => {
           {props.layer.config.label}
         </StyledLayerName>
         {hasFieldsToShow && <StyledDivider />}
-        <StyledTable>
+        <StyledTable className={props.primaryData ? 'comparing' : undefined}>
           {data.wmsFeatureData ? (
             <tbody>
               {data.wmsFeatureData.map(({name, value}, i) => (

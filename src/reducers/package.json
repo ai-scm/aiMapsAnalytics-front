@@ -1,7 +1,7 @@
 {
   "name": "@kepler.gl/reducers",
   "author": "Shan He <shan@uber.com>",
-  "version": "3.2.6",
+  "version": "3.3.0-alpha.0",
   "description": "kepler.gl constants used by kepler.gl components, actions and reducers",
   "license": "MIT",
   "main": "dist/index.js",
@@ -30,24 +30,24 @@
     "umd"
   ],
   "dependencies": {
-    "@kepler.gl/actions": "3.2.6",
-    "@kepler.gl/cloud-providers": "3.2.6",
-    "@kepler.gl/common-utils": "3.2.6",
-    "@kepler.gl/constants": "3.2.6",
-    "@kepler.gl/deckgl-arrow-layers": "3.2.6",
-    "@kepler.gl/deckgl-layers": "3.2.6",
-    "@kepler.gl/effects": "3.2.6",
-    "@kepler.gl/layers": "3.2.6",
-    "@kepler.gl/localization": "3.2.6",
-    "@kepler.gl/processors": "3.2.6",
-    "@kepler.gl/schemas": "3.2.6",
-    "@kepler.gl/table": "3.2.6",
-    "@kepler.gl/tasks": "3.2.6",
-    "@kepler.gl/types": "3.2.6",
-    "@kepler.gl/utils": "3.2.6",
-    "@loaders.gl/loader-utils": "^4.3.2",
+    "@kepler.gl/actions": "3.3.0-alpha.0",
+    "@kepler.gl/cloud-providers": "3.3.0-alpha.0",
+    "@kepler.gl/common-utils": "3.3.0-alpha.0",
+    "@kepler.gl/constants": "3.3.0-alpha.0",
+    "@kepler.gl/deckgl-arrow-layers": "3.3.0-alpha.0",
+    "@kepler.gl/deckgl-layers": "3.3.0-alpha.0",
+    "@kepler.gl/effects": "3.3.0-alpha.0",
+    "@kepler.gl/layers": "3.3.0-alpha.0",
+    "@kepler.gl/localization": "3.3.0-alpha.0",
+    "@kepler.gl/processors": "3.3.0-alpha.0",
+    "@kepler.gl/schemas": "3.3.0-alpha.0",
+    "@kepler.gl/table": "3.3.0-alpha.0",
+    "@kepler.gl/tasks": "3.3.0-alpha.0",
+    "@kepler.gl/types": "3.3.0-alpha.0",
+    "@kepler.gl/utils": "3.3.0-alpha.0",
+    "@loaders.gl/loader-utils": "^4.4.1",
     "@mapbox/geo-viewport": "^0.4.1",
-    "@math.gl/web-mercator": "^3.6.2",
+    "@math.gl/web-mercator": "^4.1.0",
     "@turf/bbox": "^6.0.1",
     "@turf/bbox-polygon": "^6.0.1",
     "@turf/boolean-within": "^6.0.1",
@@ -58,7 +58,7 @@
     "d3-dsv": "^2.0.0",
     "deepmerge": "^4.2.2",
     "global": "^4.3.0",
-    "lodash": "4.17.21",
+    "lodash": "4.17.23",
     "react-palm": "^3.3.8",
     "redux": "^4.2.1",
     "redux-actions": "^2.2.1",
@@ -70,13 +70,15 @@
   },
   "maintainers": [
     "Shan He <heshan0131@gmail.com>",
-    "Giuseppe Macri <gmacri@uber.com>"
+    "Giuseppe Macri <gmacri@uber.com>",
+    "Igor Dykhta <dikhta.igor@gmail.com>",
+    "Xun Li <lixun910@gmail.com>"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "volta": {
-    "node": "18.18.2",
+    "node": "20.19.3",
     "yarn": "4.4.0"
   },
   "packageManager": "yarn@4.4.0"

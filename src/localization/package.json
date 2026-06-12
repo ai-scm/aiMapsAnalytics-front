@@ -1,7 +1,7 @@
 {
   "name": "@kepler.gl/localization",
   "author": "Shan He <shan@uber.com>",
-  "version": "3.2.6",
+  "version": "3.3.0-alpha.0",
   "description": "kepler.gl constants used by kepler.gl components, actions and reducers",
   "license": "MIT",
   "main": "dist/index.js",
@@ -40,13 +40,15 @@
   },
   "maintainers": [
     "Shan He <heshan0131@gmail.com>",
-    "Giuseppe Macri <gmacri@uber.com>"
+    "Giuseppe Macri <gmacri@uber.com>",
+    "Igor Dykhta <dikhta.igor@gmail.com>",
+    "Xun Li <lixun910@gmail.com>"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "volta": {
-    "node": "18.18.2",
+    "node": "20.19.3",
     "yarn": "4.4.0"
   },
   "packageManager": "yarn@4.4.0"

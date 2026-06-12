@@ -25,9 +25,6 @@ const EXTERNAL_DECK_SRC = join(LIB_DIR, 'deck.gl');
 // For debugging loaders.gl, load loaders.gl from external loaders.gl directory
 const EXTERNAL_LOADERS_SRC = join(LIB_DIR, 'loaders.gl');
 
-// For debugging hubble.gl, load hubble.gl from external hubble.gl directory
-const EXTERNAL_HUBBLE_SRC = join(LIB_DIR, '../../hubble.gl');
-
 const port = 8080;
 
 const getThirdPartyLibraryAliases = useKeplerNodeModules => {
@@ -132,7 +129,7 @@ function addAliases(externals, args) {
   const resolveAlias = getThirdPartyLibraryAliases(true);
 
   // Combine flags
-  const useLocalDeck = args.includes('--env.deck') || args.includes('--env.hubble_src');
+  const useLocalDeck = args.includes('--env.deck');
   const useRepoDeck = args.includes('--env.deck_src');
   const useLocalAiAssistant = args.includes('--env.ai');
 
@@ -210,12 +207,6 @@ function addAliases(externals, args) {
     });
   }
 
-  if (args.includes('--env.hubble_src')) {
-    externals['hubble.gl'].forEach(mdl => {
-      resolveAlias[`@hubble.gl/${mdl}`] = `${EXTERNAL_HUBBLE_SRC}/modules/${mdl}/src`;
-    });
-  }
-
   return resolveAlias;
 }
 
@@ -235,7 +226,7 @@ function openURL(url) {
 (async () => {
   // local dev
 
-  const modules = ['@deck.gl', '@loaders.gl', '@luma.gl', '@probe.gl', '@hubble.gl'];
+  const modules = ['@deck.gl', '@loaders.gl', '@luma.gl', '@probe.gl'];
   const loadAllDirs = modules.map(
     dir =>
       new Promise(success => {
@@ -259,8 +250,7 @@ function openURL(url) {
     'deck.gl': results[0],
     'loaders.gl': results[1],
     'luma.gl': results[2],
-    'probe.gl': results[3],
-    'hubble.gl': results[4]
+    'probe.gl': results[3]
   }));
 
   const localAliases = addAliases(externals, args);

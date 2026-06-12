@@ -80,6 +80,13 @@ export const ADD_MAP_STYLE_ID = 'addMapStyle';
  */
 export const EXPORT_MAP_ID = 'exportMap';
 /**
+ * Modal id: export video modal
+ * @constant
+ * @type {string}
+ * @public
+ */
+export const EXPORT_VIDEO_ID = 'exportVideo';
+/**
  * Modal id: save map modal
  * @constant
  * @type {string}
@@ -286,6 +293,9 @@ export const MAP_LIB_OPTIONS = {
   MAPBOX: 'mapbox' as const,
   MAPLIBRE: 'maplibre' as const
 };
+
+/** Mapbox GL JS does not support pitch above 60 degrees */
+export const MAPBOX_MAX_PITCH = 60;
 
 export type BaseMapLibraryType = 'mapbox' | 'maplibre';
 
@@ -643,7 +653,8 @@ export const CHANNEL_SCALES = keyMirror({
   radius: null,
   size: null,
   colorAggr: null,
-  sizeAggr: null
+  sizeAggr: null,
+  angle: null
 });
 
 export const AGGREGATION_TYPES: {
@@ -693,7 +704,8 @@ export const AGGREGATION_TYPE_OPTIONS: {id: string; label: string}[] = Object.en
 export const linearFieldScaleFunctions = {
   [CHANNEL_SCALES.color]: [SCALE_TYPES.quantize, SCALE_TYPES.quantile, SCALE_TYPES.custom],
   [CHANNEL_SCALES.radius]: [SCALE_TYPES.sqrt],
-  [CHANNEL_SCALES.size]: [SCALE_TYPES.linear, SCALE_TYPES.sqrt, SCALE_TYPES.log]
+  [CHANNEL_SCALES.size]: [SCALE_TYPES.linear, SCALE_TYPES.sqrt, SCALE_TYPES.log],
+  [CHANNEL_SCALES.angle]: [SCALE_TYPES.linear]
 };
 
 const DEFAULT_AGGREGATION_COLOR_SCALES = [
@@ -1265,7 +1277,10 @@ export const GEOCODER_DATASET_NAME = 'geocoder_dataset';
 export const GEOCODER_LAYER_ID = 'geocoder_layer';
 export const GEOCODER_GEO_OFFSET = 0.05;
 export const GEOCODER_ICON_COLOR: [number, number, number] = [255, 0, 0];
-export const GEOCODER_ICON_SIZE = 80;
+// Base icon size before anchor normalization. The geocoder pin icon is bottom-anchored
+// and scaled to fit the ScatterplotLayer unit circle (~0.5x), so the rendered size is
+// compensated here (80 * 2 = 160).
+export const GEOCODER_ICON_SIZE = 160;
 
 // Editor
 export const EDITOR_LAYER_ID = 'kepler_editor_layer';
@@ -1325,6 +1340,7 @@ export const MAP_CONTROLS = keyMirror({
   mapDraw: null,
   mapLocale: null,
   effect: null,
+  annotation: null,
   aiAssistant: null
 });
 
@@ -1398,26 +1414,32 @@ export const DEFAULT_LIGHT_AND_SHADOW_PROPS: {
 export const LIGHT_AND_SHADOW_EFFECT: EffectDescription = {
   type: 'lightAndShadow',
   name: 'Light & Shadow',
+  description: 'effectDescription.lightAndShadow',
   parameters: [
     {name: 'timestamp', min: 0, max: Number.MAX_SAFE_INTEGER},
     {name: 'shadowIntensity', min: 0, max: 1, defaultValue: DEFAULT_SHADOW_INTENSITY},
-    {name: 'sunLightIntensity', min: 0, max: 1, defaultValue: DEFAULT_LIGHT_INTENSITY},
-    {name: 'ambientLightIntensity', min: 0, max: 1, defaultValue: DEFAULT_LIGHT_INTENSITY},
+    {name: 'sunLightIntensity', min: 0, max: 5, defaultValue: DEFAULT_LIGHT_INTENSITY},
+    {name: 'ambientLightIntensity', min: 0, max: 5, defaultValue: DEFAULT_LIGHT_INTENSITY},
     {name: 'shadowColor', type: 'color', min: 0, max: 255, defaultValue: DEFAULT_SHADOW_COLOR},
     {name: 'sunLightColor', type: 'color', min: 0, max: 255, defaultValue: DEFAULT_LIGHT_COLOR},
     {name: 'ambientLightColor', type: 'color', min: 0, max: 255, defaultValue: DEFAULT_LIGHT_COLOR}
   ]
 };
 
+export const DISTANCE_FOG_TYPE = 'distanceFog';
+export const SURFACE_FOG_TYPE = 'surfaceFog';
+
 export const POSTPROCESSING_EFFECTS: {[key: string]: EffectDescription} = {
   ink: {
     type: 'ink',
     name: 'Ink',
+    description: 'effectDescription.ink',
     parameters: [{name: 'strength', min: 0, max: 1}]
   },
   brightnessContrast: {
     type: 'brightnessContrast',
     name: 'Brightness & Contrast',
+    description: 'effectDescription.brightnessContrast',
     parameters: [
       {name: 'brightness', min: -1, max: 1},
       {name: 'contrast', min: -1, max: 1}
@@ -1426,6 +1448,7 @@ export const POSTPROCESSING_EFFECTS: {[key: string]: EffectDescription} = {
   hueSaturation: {
     type: 'hueSaturation',
     name: 'Hue & Saturation',
+    description: 'effectDescription.hueSaturation',
     parameters: [
       {name: 'hue', min: -1, max: 1},
       {name: 'saturation', defaultValue: 0.25, min: -1, max: 1}
@@ -1434,16 +1457,19 @@ export const POSTPROCESSING_EFFECTS: {[key: string]: EffectDescription} = {
   vibrance: {
     type: 'vibrance',
     name: 'Vibrance',
+    description: 'effectDescription.vibrance',
     parameters: [{name: 'amount', defaultValue: 0.5, min: -1, max: 1}]
   },
   sepia: {
     type: 'sepia',
     name: 'Sepia',
+    description: 'effectDescription.sepia',
     parameters: [{name: 'amount', min: 0, max: 1}]
   },
   dotScreen: {
     type: 'dotScreen',
     name: 'Dot Screen',
+    description: 'effectDescription.dotScreen',
     parameters: [
       {
         name: 'angle',
@@ -1468,6 +1494,7 @@ export const POSTPROCESSING_EFFECTS: {[key: string]: EffectDescription} = {
   colorHalftone: {
     type: 'colorHalftone',
     name: 'Color Halftone',
+    description: 'effectDescription.colorHalftone',
     parameters: [
       {
         name: 'angle',
@@ -1492,16 +1519,19 @@ export const POSTPROCESSING_EFFECTS: {[key: string]: EffectDescription} = {
   noise: {
     type: 'noise',
     name: 'Noise',
+    description: 'effectDescription.noise',
     parameters: [{name: 'amount', min: 0, max: 1}]
   },
   triangleBlur: {
     type: 'triangleBlur',
     name: 'Blur (Triangle)',
+    description: 'effectDescription.triangleBlur',
     parameters: [{name: 'radius', min: 0, max: 100}]
   },
   zoomBlur: {
     type: 'zoomBlur',
     name: 'Blur (Zoom)',
+    description: 'effectDescription.zoomBlur',
     parameters: [
       {
         name: 'strength',
@@ -1522,6 +1552,7 @@ export const POSTPROCESSING_EFFECTS: {[key: string]: EffectDescription} = {
   tiltShift: {
     type: 'tiltShift',
     name: 'Blur (Tilt Shift)',
+    description: 'effectDescription.tiltShift',
     parameters: [
       {
         name: 'blurRadius',
@@ -1556,11 +1587,13 @@ export const POSTPROCESSING_EFFECTS: {[key: string]: EffectDescription} = {
   edgeWork: {
     type: 'edgeWork',
     name: 'Edge work',
+    description: 'effectDescription.edgeWork',
     parameters: [{name: 'radius', min: 1, max: 50}]
   },
   vignette: {
     type: 'vignette',
     name: 'Vignette',
+    description: 'effectDescription.vignette',
     parameters: [
       {name: 'amount', min: 0, max: 1},
       {name: 'radius', min: 0, max: 1}
@@ -1569,6 +1602,7 @@ export const POSTPROCESSING_EFFECTS: {[key: string]: EffectDescription} = {
   magnify: {
     type: 'magnify',
     name: 'Magnify',
+    description: 'effectDescription.magnify',
     parameters: [
       {
         name: 'screenXY',
@@ -1601,7 +1635,67 @@ export const POSTPROCESSING_EFFECTS: {[key: string]: EffectDescription} = {
   hexagonalPixelate: {
     type: 'hexagonalPixelate',
     name: 'Hexagonal Pixelate',
+    description: 'effectDescription.hexagonalPixelate',
     parameters: [{name: 'scale', defaultValue: 20, min: 1, max: 50}]
+  },
+  distanceFog: {
+    type: DISTANCE_FOG_TYPE,
+    name: 'Distance Fog',
+    description: 'effectDescription.distanceFog',
+    parameters: [
+      {name: 'density', defaultValue: 0.5, min: 0, max: 1},
+      {name: 'fogStart', label: 'Start', defaultValue: 0.3, min: 0, max: 1},
+      {name: 'fogRange', label: 'Range', defaultValue: 0.5, min: 0.01, max: 1},
+      {name: 'fogColor', type: 'color', min: 0, max: 255, defaultValue: [217, 222, 230]}
+    ]
+  },
+  surfaceFog: {
+    type: SURFACE_FOG_TYPE,
+    name: 'Surface Fog',
+    description: 'effectDescription.surfaceFog',
+    parameters: [
+      {name: 'density', defaultValue: 0.6, min: 0, max: 1},
+      {name: 'height', label: 'Elevation (m)', defaultValue: 50, min: -200, max: 6000},
+      {
+        name: 'animateHeight',
+        type: 'checkbox',
+        label: 'Animate Elevation',
+        tooltip:
+          'Animates elevation from start to end value during video export preview and recording.',
+        defaultValue: false,
+        min: 0,
+        max: 1
+      },
+      {name: 'heightEnd', label: 'End Elevation (m)', defaultValue: 100, min: -200, max: 6000},
+      {
+        name: 'linearEasing',
+        type: 'checkbox',
+        label: 'Linear Easing',
+        tooltip:
+          'Uses constant speed instead of smooth ease-in / ease-out during elevation animation.',
+        defaultValue: false,
+        min: 0,
+        max: 1
+      },
+      {name: 'thickness', label: 'Transition (m)', defaultValue: 50, min: 0, max: 1000},
+      {
+        name: 'fogColor',
+        type: 'color',
+        label: 'Fog Color',
+        min: 0,
+        max: 255,
+        defaultValue: [230, 235, 242]
+      },
+      {
+        name: 'pattern',
+        type: 'checkbox',
+        label: 'Pattern',
+        tooltip: 'Adds a noise pattern to the fog for a more natural, volumetric look.',
+        defaultValue: false,
+        min: 0,
+        max: 1
+      }
+    ]
   }
 };
 
@@ -1626,6 +1720,8 @@ export type EffectType =
   | 'vignette'
   | 'magnify'
   | 'hexagonalPixelate'
+  | 'distanceFog'
+  | 'surfaceFog'
   | 'lightAndShadow';
 
 export const SYNC_TIMELINE_MODES: Record<string, SyncTimelineMode> = {
@@ -1664,3 +1760,113 @@ export const getLoaderOptions = () => {
     }
   };
 };
+
+export const CUSTOM_SCENEGRAPH_MODEL_ID = 'custom';
+const MODELS_BASE_URL =
+  'https://studio-public-data.foursquare.com/statics/keplergl/3d-models.2022-06-13';
+
+export const TRIP_LAYER_SCENEGRAPH_MODELS: {
+  id: string;
+  label: string;
+  icon: any;
+  url: string | null;
+  angles: [number, number, number];
+  scale: number;
+}[] = [
+  {
+    id: 'airplane',
+    label: 'Airplane',
+    icon: null,
+    url: `${MODELS_BASE_URL}/Plane.glb`,
+    angles: [0, 0, 0],
+    scale: 1.0
+  },
+  {
+    id: 'boeing777',
+    label: 'Airliner',
+    icon: null,
+    url: `${MODELS_BASE_URL}/Airliner.glb`,
+    angles: [0, 0, 0],
+    scale: 1.0
+  },
+  {
+    id: 'uber-evtol',
+    label: 'VTOL',
+    icon: null,
+    url: `${MODELS_BASE_URL}/evtol.glb`,
+    angles: [0, 0, 0],
+    scale: 1.0
+  },
+  {
+    id: 'hang-glider',
+    label: 'Glider',
+    icon: null,
+    url: `${MODELS_BASE_URL}/Hangglider.glb`,
+    angles: [0, 0, 0],
+    scale: 1.0
+  },
+  {
+    id: 'helicopter',
+    label: 'Helicopter',
+    icon: null,
+    url: `${MODELS_BASE_URL}/Helicopter.glb`,
+    angles: [0, 0, 0],
+    scale: 1.0
+  },
+  {
+    id: 'bicycle',
+    label: 'Bicycle',
+    icon: null,
+    url: `${MODELS_BASE_URL}/Bicycle.glb`,
+    angles: [0, 0, 0],
+    scale: 1.0
+  },
+  {
+    id: 'scooter',
+    label: 'Scooter',
+    icon: null,
+    url: `${MODELS_BASE_URL}/Scooter.glb`,
+    angles: [0, 0, 0],
+    scale: 1.0
+  },
+  {
+    id: 'car',
+    label: 'Car',
+    icon: null,
+    url: `${MODELS_BASE_URL}/Car.glb`,
+    angles: [0, 0, 0],
+    scale: 1.0
+  },
+  {
+    id: 'truck',
+    label: 'Truck',
+    icon: null,
+    url: `${MODELS_BASE_URL}/Truck.glb`,
+    angles: [0, 0, 0],
+    scale: 1.0
+  },
+  {
+    id: 'semitruck',
+    label: 'Semitruck',
+    icon: null,
+    url: `${MODELS_BASE_URL}/Semitruck.glb`,
+    angles: [0, 0, 0],
+    scale: 1.0
+  },
+  {
+    id: 'cargoship',
+    label: 'Cargoship',
+    icon: null,
+    url: `${MODELS_BASE_URL}/Cargoship.glb`,
+    angles: [0, 0, 0],
+    scale: 1.0
+  },
+  {
+    id: CUSTOM_SCENEGRAPH_MODEL_ID,
+    label: 'Custom',
+    icon: null,
+    url: null,
+    angles: [0, 0, 0],
+    scale: 1.0
+  }
+];

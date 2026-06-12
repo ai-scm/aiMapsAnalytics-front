@@ -13,12 +13,12 @@ import {FormattedMessage} from '@kepler.gl/localization';
 import {Layer, LayerBaseConfig, VisualChannel, VisualChannelDescription} from '@kepler.gl/layers';
 import {LayerVisConfig, MapState, RGBColor} from '@kepler.gl/types';
 import {getDistanceScales} from 'viewport-mercator-project';
-import {ArrowDown, ArrowRight} from '../common/icons';
+import {ArrowDown, ArrowRight, EyeSeen, EyeUnseen} from '../common/icons';
 import PanelHeaderActionFactory from '../side-panel/panel-header-action';
 
 interface StyledMapControlLegendProps {
   width?: number;
-  last?: boolean;
+  $last?: boolean;
 }
 
 export const StyledMapControlLegend = styled.div<StyledMapControlLegendProps>`
@@ -28,7 +28,7 @@ export const StyledMapControlLegend = styled.div<StyledMapControlLegendProps>`
   font-family: ${props => props.theme.fontFamily};
   border-bottom-color: ${props => props.theme.panelBorderColor};
   border-bottom-style: solid;
-  border-bottom-width: ${props => (props.last ? 0 : '1px')};
+  border-bottom-width: ${props => (props.$last ? 0 : '1px')};
   width: ${props => props.width}px;
   box-sizing: border-box;
 
@@ -70,6 +70,26 @@ export const StyledMapControlLegend = styled.div<StyledMapControlLegendProps>`
 
   .legend--layer_color-legend {
     margin-top: 6px;
+  }
+`;
+
+const StyledLegendHeaderRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const StyledVisibilityToggle = styled.div<{$isVisible: boolean}>`
+  cursor: pointer;
+  color: ${props => (props.$isVisible ? props.theme.textColor : props.theme.subtextColor)};
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+  opacity: ${props => (props.$isVisible ? 1 : 0.5)};
+
+  &:hover {
+    color: ${props => props.theme.textColorHl};
+    opacity: 1;
   }
 `;
 
@@ -300,16 +320,41 @@ export type LayerLegendHeaderProps = {
     showLayerName?: boolean;
   };
   isExport?: boolean;
+  onToggleLayerVisibility?: (layer: Layer) => void;
 };
 
 const isRadiusChannel = visualChannel =>
   [CHANNEL_SCALES.radius].includes(visualChannel.channelScaleType);
 
 export function LayerLegendHeaderFactory() {
-  const LayerLegendHeader: React.FC<LayerLegendHeaderProps> = ({options, layer}) => {
-    return options?.showLayerName !== false ? (
-      <div className="legend--layer_name">{layer.config.label}</div>
-    ) : null;
+  const LayerLegendHeader: React.FC<LayerLegendHeaderProps> = ({
+    options,
+    layer,
+    onToggleLayerVisibility
+  }) => {
+    const isVisible = layer.config.isVisible;
+    const onToggle = useCallback(() => {
+      if (onToggleLayerVisibility) {
+        onToggleLayerVisibility(layer);
+      }
+    }, [layer, onToggleLayerVisibility]);
+
+    if (options?.showLayerName === false) {
+      return null;
+    }
+
+    return (
+      <StyledLegendHeaderRow>
+        <div className="legend--layer_name" style={{opacity: isVisible ? 1 : 0.5}}>
+          {layer.config.label}
+        </div>
+        {onToggleLayerVisibility ? (
+          <StyledVisibilityToggle $isVisible={isVisible} onClick={onToggle}>
+            {isVisible ? <EyeSeen height="12px" /> : <EyeUnseen height="12px" />}
+          </StyledVisibilityToggle>
+        ) : null}
+      </StyledLegendHeaderRow>
+    );
   };
   return LayerLegendHeader;
 }
@@ -421,6 +466,7 @@ export type MapLegendProps = {
   disableEdit?: boolean;
   isExport?: boolean;
   onLayerVisConfigChange?: (oldLayer: Layer, newVisConfig: Partial<LayerVisConfig>) => void;
+  onToggleLayerVisibility?: (layer: Layer) => void;
   actionIcons?: MapLegendIcons;
 };
 
@@ -438,6 +484,7 @@ function MapLegendFactory(
     disableEdit,
     isExport,
     onLayerVisConfigChange,
+    onToggleLayerVisibility,
     actionIcons = defaultActionIcons
   }) => (
     <div className="map-legend">
@@ -450,11 +497,16 @@ function MapLegendFactory(
         return (
           <StyledMapControlLegend
             className="legend--layer"
-            last={index === layers.length - 1}
+            $last={index === layers.length - 1}
             key={index}
             width={containerW}
           >
-            <LayerLegendHeader isExport={isExport} options={options} layer={layer} />
+            <LayerLegendHeader
+              isExport={isExport}
+              options={options}
+              layer={layer}
+              onToggleLayerVisibility={onToggleLayerVisibility}
+            />
             <LayerLegendContent
               containerW={containerW}
               layer={layer}

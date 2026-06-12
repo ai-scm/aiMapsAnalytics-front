@@ -7,6 +7,9 @@ export interface KeplerGlWidgetModel {
   data: Record<string, DatasetPayload>;
   config: KeplerGlConfig;
   height: number;
+  mapbox_token: string;
+  theme: string;
+  app_name: string;
 }
 
 export interface DatasetPayload {

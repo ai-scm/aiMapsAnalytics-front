@@ -2,7 +2,6 @@
 // Copyright contributors to the kepler.gl project
 
 // vis-state-reducer
-import {PickInfo} from '@deck.gl/core/lib/deck';
 import {default as ActionTypes} from './action-types';
 import {FileCacheItem} from '@kepler.gl/processors';
 import {Layer, LayerBaseConfig} from '@kepler.gl/layers';
@@ -11,6 +10,7 @@ import {
   AddDataToMapPayload,
   ValueOf,
   Merge,
+  PickInfo,
   RGBColor,
   NestedPartial,
   LayerVisConfig,
@@ -22,6 +22,7 @@ import {
   ParsedConfig,
   ParsedLayer,
   EffectPropsPartial,
+  AnnotationPropsPartial,
   SyncTimelineMode,
   AnimationConfig,
   FilterAnimationConfig
@@ -679,6 +680,116 @@ export function updateEffect(
   };
 }
 
+// Annotation Actions
+
+export type AddAnnotationUpdaterAction = {
+  config?: AnnotationPropsPartial;
+};
+
+/**
+ * Add a new annotation
+ * @memberof visStateActions
+ * @param config - new annotation config
+ * @returns action
+ * @public
+ */
+export function addAnnotation(
+  config?: AnnotationPropsPartial
+): Merge<AddAnnotationUpdaterAction, {type: typeof ActionTypes.ADD_ANNOTATION}> {
+  return {
+    type: ActionTypes.ADD_ANNOTATION,
+    config
+  };
+}
+
+export type RemoveAnnotationUpdaterAction = {
+  id: string;
+};
+
+/**
+ * Remove an annotation
+ * @memberof visStateActions
+ * @param id id of the annotation to be removed
+ * @returns action
+ * @public
+ */
+export function removeAnnotation(
+  id: string
+): Merge<RemoveAnnotationUpdaterAction, {type: typeof ActionTypes.REMOVE_ANNOTATION}> {
+  return {
+    type: ActionTypes.REMOVE_ANNOTATION,
+    id
+  };
+}
+
+export type UpdateAnnotationUpdaterAction = {
+  id: string;
+  config: AnnotationPropsPartial;
+};
+
+/**
+ * Update an annotation
+ * @memberof visStateActions
+ * @param id id of the annotation to be updated
+ * @param config partial annotation config to merge
+ * @returns action
+ * @public
+ */
+export function updateAnnotation(
+  id: string,
+  config: AnnotationPropsPartial
+): Merge<UpdateAnnotationUpdaterAction, {type: typeof ActionTypes.UPDATE_ANNOTATION}> {
+  return {
+    type: ActionTypes.UPDATE_ANNOTATION,
+    id,
+    config
+  };
+}
+
+export type DuplicateAnnotationUpdaterAction = {
+  id: string;
+};
+
+/**
+ * Duplicate an annotation
+ * @memberof visStateActions
+ * @param id id of the annotation to be duplicated
+ * @returns action
+ * @public
+ */
+export function duplicateAnnotation(
+  id: string
+): Merge<DuplicateAnnotationUpdaterAction, {type: typeof ActionTypes.DUPLICATE_ANNOTATION}> {
+  return {
+    type: ActionTypes.DUPLICATE_ANNOTATION,
+    id
+  };
+}
+
+export type SetSelectedAnnotationUpdaterAction = {
+  id: string | null;
+  isEditingText?: boolean;
+};
+
+/**
+ * Set the selected annotation
+ * @memberof visStateActions
+ * @param id id of annotation to select, or null to deselect
+ * @param isEditingText whether the text of the annotation is being edited
+ * @returns action
+ * @public
+ */
+export function setSelectedAnnotation(
+  id: string | null,
+  isEditingText?: boolean
+): Merge<SetSelectedAnnotationUpdaterAction, {type: typeof ActionTypes.SET_SELECTED_ANNOTATION}> {
+  return {
+    type: ActionTypes.SET_SELECTED_ANNOTATION,
+    id,
+    isEditingText
+  };
+}
+
 export type RemoveDatasetUpdaterAction = {
   dataId: string;
 };
@@ -1112,7 +1223,7 @@ export function toggleFilterFeature(
 }
 
 export type OnLayerHoverUpdaterAction = {
-  info: PickInfo<any> | null;
+  info: PickInfo | null;
   mapIndex?: number;
 };
 /**
@@ -1124,7 +1235,7 @@ export type OnLayerHoverUpdaterAction = {
  * @public
  */
 export function onLayerHover(
-  info: PickInfo<any> | null,
+  info: PickInfo | null,
   mapIndex?: number
 ): Merge<OnLayerHoverUpdaterAction, {type: typeof ActionTypes.LAYER_HOVER}> {
   return {
@@ -1135,7 +1246,7 @@ export function onLayerHover(
 }
 
 export type OnLayerClickUpdaterAction = {
-  info: PickInfo<any> | null;
+  info: PickInfo | null;
 };
 /**
  * Trigger layer click event with clicked object
@@ -1145,7 +1256,7 @@ export type OnLayerClickUpdaterAction = {
  * @public
  */
 export function onLayerClick(
-  info: PickInfo<any> | null
+  info: PickInfo | null
 ): Merge<OnLayerClickUpdaterAction, {type: typeof ActionTypes.LAYER_CLICK}> {
   return {
     type: ActionTypes.LAYER_CLICK,
@@ -1397,6 +1508,27 @@ export function setPolygonFilterLayer(
   return {
     type: ActionTypes.SET_POLYGON_FILTER_LAYER,
     layer,
+    feature
+  };
+}
+
+export type SetPolygonFilterAllLayersUpdaterAction = {
+  feature: Feature;
+};
+/**
+ * Apply the provided feature as a polygon filter to all layers.
+ * @memberof visStateActions
+ * @param feature
+ * @returns action
+ */
+export function setPolygonFilterAllLayers(
+  feature: Feature
+): Merge<
+  SetPolygonFilterAllLayersUpdaterAction,
+  {type: typeof ActionTypes.SET_POLYGON_FILTER_ALL_LAYERS}
+> {
+  return {
+    type: ActionTypes.SET_POLYGON_FILTER_ALL_LAYERS,
     feature
   };
 }

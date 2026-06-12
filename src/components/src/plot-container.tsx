@@ -4,7 +4,6 @@
 // libraries
 import React, {useRef, useEffect, useState, useCallback, useMemo} from 'react';
 import styled from 'styled-components';
-import {Map} from 'react-map-gl';
 import debounce from 'lodash/debounce';
 import {
   exportImageError,
@@ -13,7 +12,7 @@ import {
   convertToPng,
   getScaleFromImageSize
 } from '@kepler.gl/utils';
-import {findMapBounds} from '@kepler.gl/reducers';
+import {findMapBounds, areAnyDeckLayersLoading} from '@kepler.gl/reducers';
 import MapContainerFactory from './map-container';
 import MapsLayoutFactory from './maps-layout';
 import {MapViewStateContextProvider} from './map-view-state-context';
@@ -66,7 +65,7 @@ PlotContainerFactory.deps = [MapContainerFactory, MapsLayoutFactory];
 // Remove mapbox logo in exported map, because it contains non-ascii characters
 // Remove split viewport UI controls from exported images when the legend is shown
 interface StyledPlotContainerProps {
-  legendZoom?: number;
+  $legendZoom?: number;
 }
 
 const StyledPlotContainer = styled.div<StyledPlotContainerProps>`
@@ -86,7 +85,7 @@ const StyledPlotContainer = styled.div<StyledPlotContainerProps>`
 
   /* Apply zoom to legend panel based on export height */
   .map-control-panel {
-    zoom: ${props => props.legendZoom || 1} !important;
+    zoom: ${props => props.$legendZoom || 1} !important;
   }
 `;
 
@@ -161,6 +160,10 @@ export default function PlotContainerFactory(
 
     const {mapState} = mapFields;
 
+    const deckLayersLoadingRef = useRef(true);
+    const mapStyleLoadedRef = useRef(false);
+    const screenshotTakenRef = useRef(false);
+
     // Memoize the scale calculation
     const scale = useMemo(() => {
       if (imageSize.scale) {
@@ -232,18 +235,53 @@ export default function PlotContainerFactory(
 
     const retrieveNewScreenshot = useCallback(debouncedScreenshot, [debouncedScreenshot]);
 
+    const tryScreenshot = useCallback(() => {
+      if (mapStyleLoadedRef.current && !deckLayersLoadingRef.current) {
+        screenshotTakenRef.current = true;
+        retrieveNewScreenshot();
+      }
+    }, [retrieveNewScreenshot]);
+
+    // Fallback: if layers never finish loading, capture after timeout
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        if (!screenshotTakenRef.current) {
+          deckLayersLoadingRef.current = false;
+          tryScreenshot();
+        }
+      }, 30000);
+      return () => clearTimeout(timer);
+    }, [tryScreenshot]);
+
     // Memoize the onMapRender callback
     const debouncedMapRender = useMemo(
       () =>
         debounce(map => {
           if (map.isStyleLoaded()) {
-            retrieveNewScreenshot();
+            mapStyleLoadedRef.current = true;
+            tryScreenshot();
           }
         }, 500),
-      [retrieveNewScreenshot]
+      [tryScreenshot]
     );
 
     const onMapRender = useCallback(debouncedMapRender, [debouncedMapRender]);
+
+    const deckRenderCallbacks = useMemo(
+      () => ({
+        onDeckAfterRender: (deckProps: Record<string, unknown>) => {
+          const layers = deckProps.layers as any[];
+          if (!layers) return;
+          const stillLoading = areAnyDeckLayersLoading(layers);
+          if (deckLayersLoadingRef.current && !stillLoading) {
+            deckLayersLoadingRef.current = false;
+            tryScreenshot();
+          }
+          deckLayersLoadingRef.current = stillLoading;
+        }
+      }),
+      [tryScreenshot]
+    );
 
     // Initial setup effect
     useEffect(() => {
@@ -254,9 +292,9 @@ export default function PlotContainerFactory(
     useEffect(() => {
       if (ratio !== undefined || resolution !== undefined || legend !== undefined) {
         setExportImageSetting({processing: true});
-        retrieveNewScreenshot();
+        tryScreenshot();
       }
-    }, [ratio, resolution, legend, setExportImageSetting, retrieveNewScreenshot]);
+    }, [ratio, resolution, legend, setExportImageSetting, tryScreenshot]);
 
     // Memoize size calculations
     const {size, width, height} = useMemo(() => {
@@ -274,11 +312,13 @@ export default function PlotContainerFactory(
 
     // Memoize map state
     const newMapState = useMemo(() => {
+      const zoomOffset = Math.log2(scale) || 0;
       const baseMapState = {
         ...mapState,
         width,
         height,
-        zoom: mapState.zoom + (Math.log2(scale) || 0)
+        zoom: mapState.zoom + zoomOffset,
+        zoomOffset
       };
 
       if (center) {
@@ -316,16 +356,19 @@ export default function PlotContainerFactory(
             settings: mapFields.mapControls?.mapLegend?.settings
           }
         },
-        MapComponent: Map,
         onMapRender,
         isExport: true,
         deckGlProps: {
           ...mapFields.deckGlProps,
-          glOptions: {
-            preserveDrawingBuffer: true,
-            useDevicePixels: false
+          _isExport: true,
+          useDevicePixels: false,
+          deviceProps: {
+            webgl: {
+              preserveDrawingBuffer: true
+            }
           }
         },
+        deckRenderCallbacks,
         visState: {
           ...mapFields.visState,
           effects: plotEffects
@@ -333,7 +376,16 @@ export default function PlotContainerFactory(
         // allow overriding the legend panel logo in export
         logoComponent
       }),
-      [mapFields, scaledMapStyle, newMapState, legend, onMapRender, plotEffects, logoComponent]
+      [
+        mapFields,
+        scaledMapStyle,
+        newMapState,
+        legend,
+        onMapRender,
+        deckRenderCallbacks,
+        plotEffects,
+        logoComponent
+      ]
     );
 
     const isSplit = splitMaps.length > 1;
@@ -348,7 +400,7 @@ export default function PlotContainerFactory(
     );
 
     return (
-      <StyledPlotContainer className="export-map-instance" legendZoom={legendZoom}>
+      <StyledPlotContainer className="export-map-instance" $legendZoom={legendZoom}>
         <StyledMapContainer ref={plottingAreaRef} width={size.width} height={size.height}>
           <MapViewStateContextProvider mapState={newMapState}>
             {mapContainers}

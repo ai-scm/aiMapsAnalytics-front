@@ -121,6 +121,8 @@ const actionHandler = {
 
   [ActionTypes.SET_POLYGON_FILTER_LAYER]: visStateUpdaters.setPolygonFilterLayerUpdater,
 
+  [ActionTypes.SET_POLYGON_FILTER_ALL_LAYERS]: visStateUpdaters.setPolygonFilterAllLayersUpdater,
+
   [ActionTypes.SET_SELECTED_FEATURE]: visStateUpdaters.setSelectedFeatureUpdater,
 
   [ActionTypes.SET_EDITOR_MODE]: visStateUpdaters.setEditorModeUpdater,
@@ -162,6 +164,16 @@ const actionHandler = {
   [ActionTypes.REMOVE_EFFECT]: visStateUpdaters.removeEffectUpdater,
 
   [ActionTypes.UPDATE_EFFECT]: visStateUpdaters.updateEffectUpdater,
+
+  [ActionTypes.ADD_ANNOTATION]: visStateUpdaters.addAnnotationUpdater,
+
+  [ActionTypes.REMOVE_ANNOTATION]: visStateUpdaters.removeAnnotationUpdater,
+
+  [ActionTypes.UPDATE_ANNOTATION]: visStateUpdaters.updateAnnotationUpdater,
+
+  [ActionTypes.DUPLICATE_ANNOTATION]: visStateUpdaters.duplicateAnnotationUpdater,
+
+  [ActionTypes.SET_SELECTED_ANNOTATION]: visStateUpdaters.setSelectedAnnotationUpdater,
 
   [ActionTypes.CREATE_NEW_DATASET_SUCCESS]: visStateUpdaters.createNewDatasetSuccessUpdater,
 

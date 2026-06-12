@@ -29,7 +29,10 @@ import {default as H3Layer} from './h3-hexagon-layer/h3-hexagon-layer';
 export {defaultElevation as h3DefaultElevation} from './h3-hexagon-layer/h3-hexagon-layer';
 import {default as ScenegraphLayer} from './scenegraph-layer/scenegraph-layer';
 import {default as TripLayer} from './trip-layer/trip-layer';
-export {defaultLineWidth as tripDefaultLineWidth} from './trip-layer/trip-layer';
+export {
+  defaultLineWidth as tripDefaultLineWidth,
+  COLUMN_MODE_GEOJSON
+} from './trip-layer/trip-layer';
 export {
   coordHasLength4,
   isTripGeoJsonField,
@@ -38,6 +41,7 @@ export {
 } from './trip-layer/trip-utils';
 import {default as S2GeometryLayer} from './s2-geometry-layer/s2-geometry-layer';
 export {defaultElevation as s2DefaultElevation} from './s2-geometry-layer/s2-geometry-layer';
+import {default as FlowLayer} from './flow-layer/flow-layer';
 export {getS2Center} from './s2-geometry-layer/s2-utils';
 export {default as AggregationLayer} from './aggregation-layer';
 import {default as VectorTileLayer} from './vector-tile/vector-tile-layer';
@@ -52,6 +56,10 @@ export {
   default as RasterTileLayer,
   getNumRasterTilesBeingLoaded
 } from './raster-tile/raster-tile-layer';
+
+import {default as Tile3DLayer} from './tile3d-layer/tile3d-layer';
+export {default as Tile3DLayer} from './tile3d-layer/tile3d-layer';
+export {default as Tile3DLayerIcon} from './tile3d-layer/tile3d-layer-icon';
 export {
   CATEGORICAL_COLORMAP_ID,
   DATA_SOURCE_COLOR_DEFAULTS,
@@ -92,9 +100,11 @@ export const KeplerGlLayers = {
   ScenegraphLayer,
   TripLayer,
   S2GeometryLayer,
+  FlowLayer,
   VectorTileLayer,
   RasterTileLayer,
-  WMSLayer
+  WMSLayer,
+  Tile3DLayer
 };
 
 export type LayerClassesType = typeof LayerClasses;
@@ -112,9 +122,11 @@ export const LayerClasses = {
   [LAYER_TYPES['3D']]: ScenegraphLayer,
   [LAYER_TYPES.trip]: TripLayer,
   [LAYER_TYPES.s2]: S2GeometryLayer,
+  [LAYER_TYPES.flow]: FlowLayer,
   [LAYER_TYPES['vectorTile']]: VectorTileLayer,
   [LAYER_TYPES['rasterTile']]: RasterTileLayer,
-  [LAYER_TYPES.wms]: WMSLayer
+  [LAYER_TYPES.wms]: WMSLayer,
+  [LAYER_TYPES.tile3d]: Tile3DLayer
 };
 
 export * from './mapbox-utils';

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright contributors to the kepler.gl project
 
-import {MapLib, MapRef} from 'react-map-gl';
+import type {MapLib, MapRef} from 'react-map-gl/mapbox-legacy';
 
 import {KEPLER_UNFOLDED_BUCKET} from '@kepler.gl/constants';
 import type {BaseMapLibraryType} from '@kepler.gl/constants';
@@ -16,7 +16,7 @@ function isWebpackBuild(): boolean {
   return typeof __webpack_require__ !== 'undefined';
 }
 
-export type MapLibInstance = MapLib<any>;
+export type MapLibInstance = MapLib;
 export type GetMapRef = ReturnType<MapRef['getMap']>;
 
 export type BaseMapLibraryConfig = {
@@ -83,9 +83,25 @@ export type KeplerApplicationConfig = {
   // WMS layer is under development and not ready for production use. Disabled by default.
   enableWMSLayer?: boolean;
 
+  // Flow layer config
+  enableFlowLayer?: boolean;
+
+  /** Whether to show example URLs in tileset setup forms (vector tile, raster tile, WMS, 3D tile) */
+  showInlineTilesetExamples?: boolean;
+
   // Image export config
   /** Whether to apply fix for uglify error in dom-to-image (should be true for webpack builds, false for Vite) */
   escapeXhtmlForWebpack?: boolean;
+
+  /** Maximum pitch angle in degrees. deck.gl defaults to 60; set higher (up to 85) for elevated perspectives.
+   *  Note: values above 60 may cause rendering artifacts with some basemap tile providers. */
+  maxPitch?: number;
+
+  /** Whether to enable the annotations feature. Enabled by default. */
+  enableAnnotations?: boolean;
+
+  /** Whether to show the map navigation control (zoom buttons and compass). Enabled by default. */
+  enableMapNavigationControl?: boolean;
 };
 
 const DEFAULT_APPLICATION_CONFIG: Required<KeplerApplicationConfig> = {
@@ -99,7 +115,7 @@ const DEFAULT_APPLICATION_CONFIG: Required<KeplerApplicationConfig> = {
 
   baseMapLibraryConfig: {
     maplibre: {
-      getMapLib: () => import('maplibre-gl'),
+      getMapLib: () => import('maplibre-gl') as unknown as Promise<MapLibInstance>,
       mapLibCssClass: 'maplibregl',
       mapLibAttributionCssClass: 'maplibre-attribution-container',
       mapLibName: 'MapLibre',
@@ -140,9 +156,20 @@ const DEFAULT_APPLICATION_CONFIG: Required<KeplerApplicationConfig> = {
   // WMS layer config
   enableWMSLayer: true,
 
+  // Flow layer config
+  enableFlowLayer: true,
+
+  showInlineTilesetExamples: true,
+
   // Image export config
   // Default to true for webpack builds, false for other build tools (e.g., Vite)
-  escapeXhtmlForWebpack: isWebpackBuild()
+  escapeXhtmlForWebpack: isWebpackBuild(),
+
+  maxPitch: 60,
+
+  enableAnnotations: true,
+
+  enableMapNavigationControl: true
 };
 
 const applicationConfig: Required<KeplerApplicationConfig> = DEFAULT_APPLICATION_CONFIG;

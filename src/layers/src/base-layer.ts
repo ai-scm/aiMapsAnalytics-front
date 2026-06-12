@@ -158,8 +158,6 @@ const MAX_SAMPLE_SIZE = 5000;
 const defaultDomain: [number, number] = [0, 1];
 const dataFilterExtension = new DataFilterExtension({
   filterSize: MAX_GPU_FILTERS,
-  // `countItems` option. It enables the GPU to report the number of objects that pass the filter criteria via the `onFilteredItemsChange` callback.
-  // @ts-expect-error not typed
   countItems: getApplicationConfig().useOnFilteredItemsChange ?? false
 });
 
@@ -1570,15 +1568,17 @@ class Layer implements KeplerLayer {
       getPixelOffset,
       backgroundProps,
       updateTriggers,
+      animationConfig,
       sharedProps
     }: {
       getPosition?: ((d: any) => number[]) | arrow.Vector;
       getFiltered?: (data: {index: number}, objectInfo: {index: number}) => number;
       getPixelOffset: (textLabel: any) => number[] | ((d: any) => number[]);
-      backgroundProps?: {background: boolean};
+      backgroundProps?: {background: boolean; backgroundPadding?: number[]; getBackgroundColor?: any};
       updateTriggers: {
         [key: string]: any;
       };
+      animationConfig?: any;
       sharedProps: any;
     },
     renderOpts
@@ -1591,6 +1591,9 @@ class Layer implements KeplerLayer {
     return data.textLabels.reduce((accu, d, i) => {
       if (d.getText) {
         const background = textLabel[i].background || backgroundProps?.background;
+        const getText = animationConfig
+          ? f => d.getText(f, animationConfig)
+          : d.getText;
 
         accu.push(
           // @ts-expect-error
@@ -1599,20 +1602,25 @@ class Layer implements KeplerLayer {
             id: `${this.id}-label-${textLabel[i].field?.name}`,
             data: data.data,
             visible: this.config.isVisible,
-            getText: d.getText,
+            getText,
             getPosition,
             getFiltered,
             characterSet: d.characterSet,
             getPixelOffset: getPixelOffset(textLabel[i]),
             getSize: PROJECTED_PIXEL_SIZE_MULTIPLIER,
             sizeScale: textLabel[i].size,
+            fontWeight: textLabel[i].weight ?? DEFAULT_TEXT_LABEL.weight,
             getTextAnchor: textLabel[i].anchor,
             getAlignmentBaseline: textLabel[i].alignment,
             getColor: textLabel[i].color,
             outlineWidth: textLabel[i].outlineWidth * TEXT_OUTLINE_MULTIPLIER,
             outlineColor: textLabel[i].outlineColor,
             background,
-            getBackgroundColor: textLabel[i].backgroundColor,
+            ...(backgroundProps?.backgroundPadding
+              ? {backgroundPadding: backgroundProps.backgroundPadding}
+              : null),
+            getBackgroundColor:
+              backgroundProps?.getBackgroundColor ?? textLabel[i].backgroundColor,
             fontSettings: {
               sdf: textLabel[i].outlineWidth > 0
             },
@@ -1624,7 +1632,10 @@ class Layer implements KeplerLayer {
             getFilterValue: data.getFilterValue,
             updateTriggers: {
               ...updateTriggers,
-              getText: textLabel[i].field?.name,
+              getText: {
+                field: textLabel[i].field?.name,
+                ...(updateTriggers.getText || {})
+              },
               getPixelOffset: {
                 ...updateTriggers.getRadius,
                 mapState,

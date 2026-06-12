@@ -12,10 +12,13 @@ import LayerSelectorPanelFactory from './layer-selector-panel';
 import MapLegendPanelFactory from './map-legend-panel';
 import MapDrawPanelFactory from './map-draw-panel';
 import LocalePanelFactory from './locale-panel';
+import MapNavigationControlFactory from './map-navigation-control';
 import {Layer} from '@kepler.gl/layers';
 import {Editor, LayerVisConfig, MapControls, MapState} from '@kepler.gl/types';
 import {Datasets} from '@kepler.gl/table';
 import {MapStateActions, UIStateActions} from '@kepler.gl/actions';
+
+import AnnotationControlFactory from './annotations/annotation-control';
 
 interface StyledMapControlProps {
   $top?: number;
@@ -62,6 +65,7 @@ export type MapControlProps = {
   onSetEditorMode: (mode: string) => void;
   onToggleEditorVisibility: () => void;
   onLayerVisConfigChange: (oldLayer: Layer, newVisConfig: Partial<LayerVisConfig>) => void;
+  onToggleLayerVisibility?: (layer: Layer) => void;
   top: number;
   onSetLocale: typeof UIStateActions.setLocale;
   availableLocales: string[];
@@ -74,6 +78,7 @@ export type MapControlProps = {
 
   // optional
   mapState?: MapState;
+  mapStateActions?: typeof MapStateActions;
   readOnly?: boolean;
   scale?: number;
   mapLayers?: {[key: string]: boolean};
@@ -88,7 +93,9 @@ MapControlFactory.deps = [
   LayerSelectorPanelFactory,
   MapLegendPanelFactory,
   MapDrawPanelFactory,
-  LocalePanelFactory
+  LocalePanelFactory,
+  AnnotationControlFactory,
+  MapNavigationControlFactory
 ];
 
 function MapControlFactory(
@@ -97,13 +104,16 @@ function MapControlFactory(
   LayerSelectorPanel: ReturnType<typeof LayerSelectorPanelFactory>,
   MapLegendPanel: ReturnType<typeof MapLegendPanelFactory>,
   MapDrawPanel: ReturnType<typeof MapDrawPanelFactory>,
-  LocalePanel: ReturnType<typeof LocalePanelFactory>
+  LocalePanel: ReturnType<typeof LocalePanelFactory>,
+  AnnotationControl: ReturnType<typeof AnnotationControlFactory>,
+  MapNavigationControl: ReturnType<typeof MapNavigationControlFactory>
 ) {
   const DEFAULT_ACTIONS = [
     SplitMapButton,
     LayerSelectorPanel,
     Toggle3dButton,
     MapDrawPanel,
+    AnnotationControl,
     LocalePanel,
     MapLegendPanel
   ];
@@ -116,12 +126,15 @@ function MapControlFactory(
     top = 0,
     mapIndex = 0,
     logoComponent = LegendLogo,
+    mapState,
+    mapStateActions,
     ...restProps
   }) => {
     const actionComponentProps = {
       isSplit,
       mapIndex,
       logoComponent,
+      mapState,
       ...restProps
     };
     return (
@@ -129,6 +142,13 @@ function MapControlFactory(
         {actionComponents.map((ActionComponent, index) => (
           <ActionComponent key={index} className="map-control-action" {...actionComponentProps} />
         ))}
+        {mapState && mapStateActions ? (
+          <MapNavigationControl
+            mapState={mapState}
+            mapIndex={mapIndex}
+            mapStateActions={mapStateActions}
+          />
+        ) : null}
       </StyledMapControl>
     );
   };

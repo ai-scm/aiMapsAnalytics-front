@@ -5,7 +5,7 @@ import React, {useCallback} from 'react';
 import styled, {IStyledComponent} from 'styled-components';
 import classnames from 'classnames';
 import {processRowObject} from '@kepler.gl/processors';
-import {FlyToInterpolator} from '@deck.gl/core/typed';
+import {FlyToInterpolator} from '@deck.gl/core';
 import {getCenterAndZoomFromBounds} from '@kepler.gl/utils';
 import {
   GEOCODER_DATASET_NAME,
@@ -18,7 +18,15 @@ import {AddDataToMapOptions, MapState, ProtoDataset, UiState, Viewport} from '@k
 import {ActionHandler, removeDataset, updateMap, updateVisData} from '@kepler.gl/actions';
 
 import Geocoder, {Result} from './geocoder/geocoder';
-import {MapViewState} from '@deck.gl/core/typed';
+type MapViewState = {
+  latitude: number;
+  longitude: number;
+  zoom: number;
+  bearing?: number;
+  pitch?: number;
+  transitionDuration?: number;
+  transitionInterpolator?: object;
+};
 
 import {BaseComponentProps} from './types';
 
@@ -130,6 +138,7 @@ interface GeocoderPanelProps {
   removeDataset: ActionHandler<typeof removeDataset>;
   updateMap: ActionHandler<typeof updateMap>;
   layerOrder: string[];
+  limitSearch?: boolean;
 
   transitionDuration?: MapViewState['transitionDuration'];
   width?: number;
@@ -147,6 +156,7 @@ export default function GeocoderPanelFactory(): React.FC<GeocoderPanelProps> {
     removeDataset,
     updateMap,
     layerOrder,
+    limitSearch = false,
     transitionDuration = 3000,
     width,
     className,
@@ -227,6 +237,8 @@ export default function GeocoderPanelFactory(): React.FC<GeocoderPanelProps> {
             onSelected={onSelected}
             onDeleteMarker={removeGeocoderDataset}
             width={width}
+            mapState={mapState}
+            limitSearch={limitSearch}
           />
         )}
       </StyledGeocoderPanel>

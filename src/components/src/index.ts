@@ -98,6 +98,8 @@ export {
 export {default as LayerPanelFactory} from './side-panel/layer-panel/layer-panel';
 export {default as SingleColorPalette} from './side-panel/layer-panel/single-color-palette';
 export {default as TextLabelPanelFactory} from './side-panel/layer-panel/text-label-panel';
+export {default as ScenegraphModelSelectorFactory} from './side-panel/layer-panel/scenegraph-model-selector';
+
 
 export {default as AddLayerButtonFactory} from './side-panel/layer-panel/add-layer-button';
 export * from './side-panel/layer-panel/channel-by-value-selector';
@@ -137,6 +139,7 @@ export {default as FilterPanelFactory} from './side-panel/filter-panel/filter-pa
 export {default as InteractionManagerFactory} from './side-panel/interaction-manager';
 export {default as BrushConfigFactory} from './side-panel/interaction-panel/brush-config';
 export {default as TooltipConfigFactory} from './side-panel/interaction-panel/tooltip-config';
+export {default as GeocoderConfigFactory} from './side-panel/interaction-panel/geocoder-config';
 
 export {default as DndContextFactory} from './dnd-context';
 export {default as CustomPanelsFactory} from './side-panel/custom-panel';
@@ -152,6 +155,7 @@ export {default as LayerSelectorPanelFactory} from './map/layer-selector-panel';
 export {default as LazyTippy} from './map/lazy-tippy';
 export {default as LocalePanelFactory} from './map/locale-panel';
 export {default as MapControlFactory} from './map/map-control';
+export {default as MapNavigationControlFactory} from './map/map-navigation-control';
 export {default as MapControlPanelFactory} from './map/map-control-panel';
 export {default as MapControlToolbarFactory} from './map/map-control-toolbar';
 export {default as MapControlTooltipFactory} from './map/map-control-tooltip';
@@ -186,6 +190,7 @@ export {default as ExportImageModalFactory} from './modals/export-image-modal';
 export {default as ExportHtmlMapFactory} from './modals/export-map-modal/export-html-map';
 export {default as ExportJsonMapFactory} from './modals/export-map-modal/export-json-map';
 export {default as ExportMapModalFactory} from './modals/export-map-modal/export-map-modal';
+export {default as ExportVideoModalFactory} from './modals/export-video-modal';
 export {default as LoadDataModalFactory} from './modals/load-data-modal';
 export {default as LoadTileSetFactory} from './modals/tilesets-modals/load-tileset';
 export {default as LoadStorageMapFactory} from './modals/load-storage-map';
@@ -208,6 +213,7 @@ export {default as PlayControlFactory} from './common/animation-control/play-con
 export {default as PlaybackControlsFactory} from './common/animation-control/playback-controls';
 export {default as ResetControlFactory} from './common/animation-control/reset-control';
 export {default as SpeedControlFactory} from './common/animation-control/speed-control';
+export {default as ExportVideoControlFactory} from './common/animation-control/export-video-control';
 export {default as WindowActionControlFactory} from './common/animation-control/window-action-control';
 
 export {default as HistogramPlotFactory, HISTOGRAM_MASK_MODE} from './common/histogram-plot';
@@ -345,11 +351,22 @@ export {default as LayerTypeDropdownListFactory} from './side-panel/layer-panel/
 export {default as LayerTypeSelectorFactory} from './side-panel/layer-panel/layer-type-selector';
 
 export {default as EffectConfiguratorFactory} from './effects/effect-configurator';
+export {default as SurfaceFogElevationSectionFactory} from './effects/surface-fog-section';
 export {default as EffectListFactory} from './effects/effect-list';
 export {default as EffectManagerFactory} from './effects/effect-manager';
 export {default as EffectTimeConfiguratorFactory} from './effects/effect-time-configurator';
 export {default as EffectTypeSelectorFactory} from './effects/effect-type-selector';
 export {default as SidePanelTitleFactory} from './effects/side-panel-title';
+
+// Annotations
+export {default as AnnotationManagerFactory} from './annotations/annotation-panel';
+export {AnnotationOverlay} from './annotations';
+export {AnnotationNode} from './annotations';
+export {AnnotationText} from './annotations';
+export {makeMarker, movePoint, moveText, resizeCircle, isLeftOriented} from './annotations';
+export type {MapViewport, AnnotationMarker} from './annotations';
+export {default as AnnotationControlFactory} from './map/annotations/annotation-control';
+
 export {default as ColorBreaksPanelFactory} from './side-panel/layer-panel/color-breaks-panel';
 export {default as DimensionScaleSelectorFactory} from './side-panel/layer-panel/dimension-scale-selector';
 export {default as HowToButton} from './side-panel/layer-panel/how-to-button';
@@ -364,6 +381,7 @@ export type {FeatureActionPanelProps} from './editor/feature-action-panel';
 export type {PlaybackControlsProps} from './common/animation-control/playback-controls';
 export type {MapContainerProps} from './map-container';
 export type {MapControlProps} from './map/map-control';
+export type {MapNavigationControlProps} from './map/map-navigation-control';
 export type {MapDrawPanelProps} from './map/map-draw-panel';
 export type {MapLegendPanelFactoryDeps, MapLegendPanelProps} from './map/map-legend-panel';
 export type {DatasetInfoProps} from './side-panel/common/dataset-info';

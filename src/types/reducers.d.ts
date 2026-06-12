@@ -2,7 +2,15 @@
 // Copyright contributors to the kepler.gl project
 
 import {Field, Millisecond} from './types';
-import type {MapViewState} from '@deck.gl/core/typed';
+type MapViewState = {
+  latitude: number;
+  longitude: number;
+  zoom: number;
+  bearing?: number;
+  pitch?: number;
+  transitionDuration?: number;
+  transitionInterpolator?: object;
+};
 import type {ExportResolutionOption} from '@kepler.gl/constants';
 
 export type MapState = {
@@ -16,6 +24,7 @@ export type MapState = {
   height: number;
   minZoom?: number;
   maxZoom?: number;
+  maxPitch?: number;
   maxBounds?: Bounds;
   initialState?: any;
   scale?: number;
@@ -309,6 +318,9 @@ export type TooltipInfo = BaseInteraction & {
 export type Geocoder = BaseInteraction & {
   id: 'geocoder';
   position: number[] | null;
+  config: {
+    limitSearch: boolean;
+  };
 };
 export type Brush = BaseInteraction & {
   id: 'brush';
@@ -411,6 +423,14 @@ export type ExportMap = {
   format: 'HTML' | 'JSON';
 };
 
+export type ExportVideo = {
+  mediaType: string;
+  cameraPreset: string;
+  fileName: string;
+  resolution: string;
+  durationMs: number;
+};
+
 export type MapControlItem = {
   show: boolean;
   active: boolean;
@@ -440,6 +460,7 @@ export type MapControls = {
   mapDraw?: MapControlItem;
   mapLocale?: MapControlItem;
   effect?: MapControlItem;
+  annotation?: MapControlItem;
   aiAssistant?: MapControlItem;
 };
 
@@ -472,6 +493,8 @@ export type UiState = {
   exportData: ExportData;
   // html export
   exportMap: ExportMap;
+  // export video modal ui
+  exportVideo: ExportVideo;
   // map control panels
   mapControls: MapControls;
   // ui notifications
@@ -512,6 +535,8 @@ export type Viewport = {
   minZoom?: number;
   /**  Maximum allowed viewport zoom */
   maxZoom?: number;
+  /**  Maximum pitch angle in degrees */
+  maxPitch?: number;
   /**  Maximum geographical bounds, pan/zoom operations are constrained within those bounds */
   maxBounds?: Bounds;
   /** viewport transition duration use by geocoder panel **/

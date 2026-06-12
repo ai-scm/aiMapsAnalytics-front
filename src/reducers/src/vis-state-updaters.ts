@@ -89,12 +89,22 @@ import {
   FILTER_VIEW_TYPES,
   FPS,
   LIGHT_AND_SHADOW_EFFECT,
+  DISTANCE_FOG_TYPE,
+  SURFACE_FOG_TYPE,
   MAX_DEFAULT_TOOLTIPS,
   PLOT_TYPES,
   SORT_ORDER,
   SYNC_TIMELINE_MODES,
   CHANNEL_SCALES,
-  SCALE_TYPES
+  SCALE_TYPES,
+  INITIAL_ANNOTATION_KIND,
+  INITIAL_ANNOTATION_ANGLE,
+  INITIAL_ANNOTATION_ARM_LENGTH,
+  INITIAL_ANNOTATION_TEXT_WIDTH,
+  INITIAL_ANNOTATION_TEXT_HEIGHT,
+  INITIAL_ANNOTATION_LINE_WIDTH,
+  INITIAL_ANNOTATION_LINE_COLOR,
+  AnnotationKind
 } from '@kepler.gl/constants';
 import {LAYER_ID_LENGTH, Layer, LayerClasses} from '@kepler.gl/layers';
 import {
@@ -127,7 +137,10 @@ import {
   FilterAnimationConfig,
   Editor,
   Field,
-  TimeRangeFilter
+  LayerVisConfig,
+  TimeRangeFilter,
+  Annotation,
+  AnnotationPropsPartial
 } from '@kepler.gl/types';
 import {Loader} from '@loaders.gl/loader-utils';
 
@@ -141,7 +154,12 @@ import {
   sortDatasetByColumn
 } from '@kepler.gl/table';
 import {findFieldsToShow} from './interaction-utils';
-import {calculateLayerData, findDefaultLayer, getLayerOrderFromLayers} from './layer-utils';
+import {
+  calculateLayerData,
+  findDefaultLayer,
+  getLayerOrderFromLayers,
+  mergeLayerVisConfigForNewDatasets
+} from './layer-utils';
 import {getPropValueToMerger, hasPropsToMerge} from './merger-handler';
 import {mergeDatasetsByOrder} from './vis-state-merger';
 import {
@@ -222,7 +240,10 @@ export const defaultInteractionConfig: InteractionConfig = {
     id: 'geocoder',
     label: 'interactions.geocoder',
     enabled: false,
-    position: null
+    position: null,
+    config: {
+      limitSearch: false
+    }
   },
   brush: {
     id: 'brush',
@@ -290,6 +311,12 @@ export const INITIAL_VIS_STATE: VisState = {
   // effects
   effects: [],
   effectOrder: [],
+
+  // annotations
+  annotations: [],
+  annotationsToBeMerged: [],
+  selectedAnnotationId: null,
+  isEditingAnnotationText: false,
 
   interactionConfig: defaultInteractionConfig,
   interactionToBeMerged: {},
@@ -837,6 +864,27 @@ export function layerDataIdChangeUpdater(
     } else {
       newLayer = validated;
     }
+  } else {
+    // Layer is not valid to save (e.g. missing columns), but we still need to
+    // remap visual channel fields to the new dataset to avoid stale field references
+    // that point to rows beyond the new dataset's length
+    const newDatasetFields = state.datasets[dataId].fields;
+    const remappedFields: Record<string, any> = {};
+    Object.values(newLayer.visualChannels).forEach(({field: fieldKey}) => {
+      const currentField = newLayer.config[fieldKey];
+      if (currentField) {
+        const matched = newDatasetFields.find(f => f.name === currentField.name);
+        remappedFields[fieldKey] = matched || null;
+      }
+    });
+    if (Object.keys(remappedFields).length) {
+      newLayer = newLayer.updateLayerConfig(remappedFields);
+    }
+    // Validate field type compatibility — clears fields whose type is incompatible
+    // with the channel's supported field types (e.g. string field for a numeric scale)
+    Object.values(newLayer.visualChannels).forEach(({key}) => {
+      newLayer.validateVisualChannel(key);
+    });
   }
 
   newLayer = newLayer.updateLayerConfig({
@@ -879,7 +927,8 @@ export function setInitialLayerConfig(layer, datasets, layerClasses): Layer {
       ...props[0],
       label: newLayer.config.label,
       dataId: newLayer.config.dataId,
-      isConfigActive: newLayer.config.isConfigActive
+      isConfigActive: newLayer.config.isConfigActive,
+      isVisible: newLayer.config.isVisible
     });
   }
   return typeof newLayer.setInitialLayerConfig === 'function'
@@ -1913,6 +1962,26 @@ export const addEffectUpdater = (
     return state;
   }
 
+  if (
+    action.config?.type === DISTANCE_FOG_TYPE &&
+    state.effects.some(
+      effect => effect.type === DISTANCE_FOG_TYPE || effect.type === SURFACE_FOG_TYPE
+    )
+  ) {
+    Console.warn("Can't add more than one fog effect");
+    return state;
+  }
+
+  if (
+    action.config?.type === SURFACE_FOG_TYPE &&
+    state.effects.some(
+      effect => effect.type === SURFACE_FOG_TYPE || effect.type === DISTANCE_FOG_TYPE
+    )
+  ) {
+    Console.warn("Can't add more than one fog effect");
+    return state;
+  }
+
   const newEffect = createEffect(action.config);
 
   // collapse configurators for other effects
@@ -2001,6 +2070,174 @@ export const updateEffectUpdater = (
     ...state,
     effects: newEffects,
     effectOrder
+  };
+};
+
+// ANNOTATION UPDATERS
+
+function makeNewAnnotation(config?: AnnotationPropsPartial): Annotation {
+  const kind = config?.kind ?? INITIAL_ANNOTATION_KIND;
+  const base = {
+    id: config?.id ?? generateHashId(6),
+    kind,
+    isVisible: config?.isVisible ?? true,
+    autoSize: config?.autoSize ?? true,
+    autoSizeY: config?.autoSizeY ?? true,
+    anchorPoint: config?.anchorPoint ?? ([0, 0] as [number, number]),
+    label: config?.label ?? 'New Annotation',
+    lineColor: config?.lineColor ?? INITIAL_ANNOTATION_LINE_COLOR,
+    lineWidth: config?.lineWidth ?? INITIAL_ANNOTATION_LINE_WIDTH,
+    textWidth: config?.textWidth ?? INITIAL_ANNOTATION_TEXT_WIDTH,
+    textHeight: config?.textHeight ?? INITIAL_ANNOTATION_TEXT_HEIGHT,
+    textVerticalAlign: config?.textVerticalAlign ?? ('bottom' as const),
+    mapIndex: config?.mapIndex
+  };
+
+  switch (kind) {
+    case AnnotationKind.POINT:
+      return {
+        ...base,
+        kind: AnnotationKind.POINT,
+        armLength: (config as any)?.armLength ?? INITIAL_ANNOTATION_ARM_LENGTH,
+        angle: (config as any)?.angle ?? INITIAL_ANNOTATION_ANGLE
+      };
+    case AnnotationKind.ARROW:
+      return {
+        ...base,
+        kind: AnnotationKind.ARROW,
+        armLength: (config as any)?.armLength ?? INITIAL_ANNOTATION_ARM_LENGTH,
+        angle: (config as any)?.angle ?? INITIAL_ANNOTATION_ANGLE
+      };
+    case AnnotationKind.CIRCLE:
+      return {
+        ...base,
+        kind: AnnotationKind.CIRCLE,
+        armLength: (config as any)?.armLength ?? INITIAL_ANNOTATION_ARM_LENGTH,
+        angle: (config as any)?.angle ?? INITIAL_ANNOTATION_ANGLE,
+        radiusInMeters: (config as any)?.radiusInMeters ?? 1000
+      };
+    case AnnotationKind.TEXT:
+    default:
+      return {
+        ...base,
+        kind: AnnotationKind.TEXT
+      };
+  }
+}
+
+/**
+ * Add a new annotation
+ * @memberof visStateUpdaters
+ * @public
+ */
+export const addAnnotationUpdater = (
+  state: VisState,
+  action: VisStateActions.AddAnnotationUpdaterAction
+): VisState => {
+  const newAnnotation = makeNewAnnotation(action.config);
+  return {
+    ...state,
+    annotations: [newAnnotation, ...state.annotations],
+    selectedAnnotationId: newAnnotation.id,
+    isEditingAnnotationText: true
+  };
+};
+
+/**
+ * Remove an annotation
+ * @memberof visStateUpdaters
+ * @public
+ */
+export const removeAnnotationUpdater = (
+  state: VisState,
+  {id}: VisStateActions.RemoveAnnotationUpdaterAction
+): VisState => {
+  return {
+    ...state,
+    annotations: state.annotations.filter(a => a.id !== id),
+    selectedAnnotationId: state.selectedAnnotationId === id ? null : state.selectedAnnotationId,
+    isEditingAnnotationText:
+      state.selectedAnnotationId === id ? false : state.isEditingAnnotationText
+  };
+};
+
+/**
+ * Update an annotation
+ * @memberof visStateUpdaters
+ * @public
+ */
+export const updateAnnotationUpdater = (
+  state: VisState,
+  {id, config}: VisStateActions.UpdateAnnotationUpdaterAction
+): VisState => {
+  const idx = state.annotations.findIndex(a => a.id === id);
+  if (idx < 0) {
+    Console.warn(`can not update annotation with invalid id ${id}`);
+    return state;
+  }
+  const prev = state.annotations[idx];
+  let nextAnnotation: Annotation;
+
+  if (config.kind && config.kind !== prev.kind) {
+    nextAnnotation = makeNewAnnotation({...prev, ...config} as AnnotationPropsPartial);
+  } else {
+    nextAnnotation = {...prev, ...config} as Annotation;
+  }
+
+  const newAnnotations = [...state.annotations];
+  newAnnotations[idx] = nextAnnotation;
+  return {
+    ...state,
+    annotations: newAnnotations
+  };
+};
+
+/**
+ * Duplicate an annotation
+ * @memberof visStateUpdaters
+ * @public
+ */
+export const duplicateAnnotationUpdater = (
+  state: VisState,
+  {id}: VisStateActions.DuplicateAnnotationUpdaterAction
+): VisState => {
+  const original = state.annotations.find(a => a.id === id);
+  if (!original) {
+    Console.warn(`can not duplicate annotation with invalid id ${id}`);
+    return state;
+  }
+  const newAnnotation = {
+    ...cloneDeep(original),
+    id: generateHashId(6),
+    label: `Copy of ${original.label}`
+  };
+  return {
+    ...state,
+    annotations: [newAnnotation, ...state.annotations],
+    selectedAnnotationId: newAnnotation.id,
+    isEditingAnnotationText: false
+  };
+};
+
+/**
+ * Set selected annotation
+ * @memberof visStateUpdaters
+ * @public
+ */
+export const setSelectedAnnotationUpdater = (
+  state: VisState,
+  {id, isEditingText}: VisStateActions.SetSelectedAnnotationUpdaterAction
+): VisState => {
+  if (
+    id === state.selectedAnnotationId &&
+    (isEditingText ?? false) === state.isEditingAnnotationText
+  ) {
+    return state;
+  }
+  return {
+    ...state,
+    selectedAnnotationId: id,
+    isEditingAnnotationText: isEditingText ?? false
   };
 };
 
@@ -2485,6 +2722,20 @@ export function applyMergersUpdater(
     : mergeStateResult.mergedState;
 }
 
+/** Reads `options.layerVisConfig` from add-data-to-map (see `AddDataToMapOptions`). */
+function layerVisConfigFromAddDataOptions(
+  options: PostMergerPayload['options'] | undefined
+): Partial<LayerVisConfig> | undefined {
+  if (!options || !('layerVisConfig' in options)) {
+    return undefined;
+  }
+  const patch = (options as {layerVisConfig?: unknown}).layerVisConfig;
+  if (patch == null || typeof patch !== 'object' || Array.isArray(patch)) {
+    return undefined;
+  }
+  return patch as Partial<LayerVisConfig>;
+}
+
 /**
  * Add new dataset to `visState`, with option to load a map config along with the datasets
  */
@@ -2527,6 +2778,12 @@ function postMergeUpdater(mergedState: VisState, postMergerPayload: PostMergerPa
       splitMaps: addNewLayersToSplitMap(mergedState.splitMaps, newLayers)
     };
   }
+
+  mergedState = mergeLayerVisConfigForNewDatasets(
+    mergedState,
+    layerVisConfigFromAddDataOptions(options),
+    newDataIds
+  );
 
   // if no tooltips merged add default tooltips
   newDataIds.forEach(dataId => {
@@ -3139,7 +3396,12 @@ export function setFeaturesUpdater(
       ...state.editor,
       // only save none filter features to editor
       features: features.filter(f => !getFilterIdInFeature(f)),
-      mode: lastFeature && lastFeature.properties?.isClosed ? EDITOR_MODES.EDIT : state.editor.mode
+      mode:
+        lastFeature && lastFeature.properties?.isClosed
+          ? lastFeature.properties?.shape === 'Rectangle'
+            ? state.editor.mode
+            : EDITOR_MODES.EDIT
+          : state.editor.mode
     }
   };
 
@@ -3309,6 +3571,42 @@ export function setPolygonFilterLayerUpdater(
     idx: filterIdx,
     prop: 'layerId',
     value: newLayerId
+  });
+}
+
+/**
+ * Apply polygon filter to all visible layers
+ * @memberof visStateUpdaters
+ */
+export function setPolygonFilterAllLayersUpdater(
+  state: VisState,
+  payload: VisStateActions.SetPolygonFilterAllLayersUpdaterAction
+): VisState {
+  const {feature} = payload;
+
+  const newFilter = generatePolygonFilter([], feature);
+  const filterIdx = state.filters.length;
+
+  const newState: VisState = {
+    ...state,
+    filters: [...state.filters, newFilter],
+    editor: {
+      ...state.editor,
+      features: state.editor.features.filter(f => f.id !== feature.id),
+      selectedFeature: newFilter.value,
+      mode: EDITOR_MODES.EDIT
+    }
+  };
+
+  const visibleLayerIds = get(payload, 'visibleLayerIds');
+  const allLayerIds = Array.isArray(visibleLayerIds)
+    ? visibleLayerIds
+    : state.layers.filter(l => l.config.isVisible).map(l => l.id);
+
+  return setFilterUpdater(newState, {
+    idx: filterIdx,
+    prop: 'layerId',
+    value: allLayerIds
   });
 }
 

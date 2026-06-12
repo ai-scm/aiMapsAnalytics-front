@@ -3,13 +3,12 @@
 
 import {FeatureCollection, Feature} from 'geojson';
 
-import {Layer as DeckLayer} from '@deck.gl/core/typed';
-import {_Tile2DHeader as Tile2DHeader} from '@deck.gl/geo-layers/typed';
-import {GeoJsonLayer, PathLayer} from '@deck.gl/layers/typed';
+import {Layer as DeckLayer} from '@deck.gl/core';
+import {_Tile2DHeader as Tile2DHeader} from '@deck.gl/geo-layers';
+import {GeoJsonLayer, PathLayer} from '@deck.gl/layers';
+import {ClipExtension} from '@deck.gl/extensions';
 import {MVTSource, MVTTileSource} from '@loaders.gl/mvt';
 import {PMTilesSource, PMTilesTileSource} from '@loaders.gl/pmtiles';
-import GL from '@luma.gl/constants';
-import {ClipExtension} from '@deck.gl/extensions/typed';
 
 import {notNullorUndefined} from '@kepler.gl/common-utils';
 import {
@@ -21,7 +20,8 @@ import {
   SCALE_TYPES,
   CHANNEL_SCALES,
   DEFAULT_COLOR_UI,
-  LAYER_VIS_CONFIGS
+  LAYER_VIS_CONFIGS,
+  CULL_MODE
 } from '@kepler.gl/constants';
 import {
   getTileUrl,
@@ -365,6 +365,25 @@ export default class VectorTileLayer extends AbstractTileLayer<VectorTile, Featu
       // if colorField or sizeField were set back to null
       return defaultDomain;
     }
+
+    // When dynamicColor is enabled, the domain is managed asynchronously by
+    // setDynamicColorDomain(). Preserve the current domain to avoid overwriting
+    // the async result with metadata-based [min, max] values.
+    if (this.config.visConfig.dynamicColor && visualChannel.key === 'color') {
+      if (scale === SCALE_TYPES.quantile) {
+        const current = this.config.colorDomain;
+        return Array.isArray(current) && current.length > 2
+          ? (current as number[])
+          : defaultDomain;
+      }
+      if (scale === SCALE_TYPES.quantize) {
+        const current = this.config.colorDomain;
+        return Array.isArray(current) && current.length === 2
+          ? (current as number[])
+          : defaultDomain;
+      }
+    }
+
     if (scale === SCALE_TYPES.quantile && isDomainQuantiles(field?.filterProps?.domainQuantiles)) {
       return field.filterProps.domainQuantiles;
     }
@@ -473,7 +492,7 @@ export default class VectorTileLayer extends AbstractTileLayer<VectorTile, Featu
               mvt: {
                 metadataUrl: datasetMetadata?.tilesetMetadataUrl ?? null,
                 loadOptions: {
-                  fetch: transformFetch
+                  core: {fetch: transformFetch}
                 }
               }
             })
@@ -668,7 +687,7 @@ export default class VectorTileLayer extends AbstractTileLayer<VectorTile, Featu
             'polygons-stroke': {opacity: visConfig.strokeOpacity},
             'polygons-fill': {
               parameters: {
-                cullFace: GL.BACK
+                cullMode: CULL_MODE.BACK
               }
             }
           },

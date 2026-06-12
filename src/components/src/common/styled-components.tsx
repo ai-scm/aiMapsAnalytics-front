@@ -352,7 +352,7 @@ export const InlineInput = styled(Input)`
 `;
 
 export interface StyledPanelHeaderProps {
-  active?: boolean;
+  $active?: boolean;
   labelRCGColorValues?: RGBColor | null;
   warning?: boolean;
   isValid?: boolean;
@@ -360,7 +360,7 @@ export interface StyledPanelHeaderProps {
 
 export const StyledPanelHeader = styled.div.withConfig({shouldForwardProp})<StyledPanelHeaderProps>`
   background-color: ${props =>
-    props.active ? props.theme.panelBackgroundHover : props.theme.panelBackground};
+    props.$active ? props.theme.panelBackgroundHover : props.theme.panelBackground};
   border-left: 3px solid
     rgb(
       ${props => (props.labelRCGColorValues ? props.labelRCGColorValues.join(',') : 'transparent')}

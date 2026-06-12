@@ -33,6 +33,7 @@ const expectedVisStateEntries = [
   'filters',
   'layers',
   'effects',
+  'annotations',
   'interactionConfig',
   'layerBlending',
   'overlayBlending',
@@ -107,7 +108,7 @@ test('#visStateSchema -> v1 -> save load filters', t => {
         interval: '1-hour',
         defaultTimeFormat: 'L  H A',
         type: 'histogram',
-        aggregation: 'sum'
+        aggregation: 'average'
       },
       yAxis: null,
       animationWindow: 'free',
@@ -217,7 +218,8 @@ test('#visStateSchema -> v1 -> save load interaction', t => {
       enabled: false
     },
     geocoder: {
-      enabled: false
+      enabled: false,
+      limitSearch: false
     }
   };
 
@@ -274,7 +276,8 @@ test('#visStateSchema -> v1 -> save load interaction -> tooltip format', t => {
       enabled: false
     },
     geocoder: {
-      enabled: false
+      enabled: false,
+      limitSearch: false
     }
   };
 

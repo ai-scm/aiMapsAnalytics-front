@@ -160,4 +160,43 @@ Examples of supported WMS Tiles:
 
 For step-by-step instructions, see [WMS Layer — How to add](./o-wms-layer.md).
 
+## Flow Layer (experimental)
+
+Flow layers visualize movement between locations as aggregated origin-destination flows. They are useful for displaying migration patterns, commute data, trade routes, and any dataset that represents movement between geographic points.
+
+The layer automatically clusters nearby locations at different zoom levels, draws flow lines proportional to magnitude, and renders location totals as circles. It supports two column modes: **Lat/Lng** (source/target coordinates) and **H3** (source/target H3 hexagonal indices). An optional count column controls flow magnitude.
+
+- This feature is experimental and currently enabled by default via `enableFlowLayer: true` in the application configuration.
+
+Layer Attributes: Color Range, Opacity, Animation, Curved Lines, Adaptive Scales, Fade, Fade Amount, Clustering, Location Totals, Max Top Flows, Dark Base Map
+
+For detailed instructions, see [Flow Layer](./q-flow-layer.md).
+
+## 3D Tile Layer (experimental)
+
+3D Tile layers render photogrammetry meshes, buildings, terrain and other 3D content served as OGC 3D Tiles or I3S tilesets. The layer streams and renders tiles based on the current viewport and camera position, loading detail on demand.
+
+Supported providers:
+
+- OGC 3D Tiles 1.0 / 1.1 (any `tileset.json` endpoint)
+- Google Photorealistic 3D Tiles (requires a Google Maps API key)
+- Cesium Ion (requires a Cesium Ion access token)
+- ArcGIS I3S scene services
+
+Example ArcGIS I3S tileset:
+
+- San Francisco Buildings — https://tiles.arcgis.com/tiles/z2tnIkrLQ2BRzr6P/arcgis/rest/services/SanFrancisco_Bldgs/SceneServer/layers/0
+
+Example Cesium Ion tilesets (require access token):
+
+- Washington DC mesh — https://assets.ion.cesium.com/57588/tileset.json
+- Melbourne point cloud — https://assets.ion.cesium.com/43978/tileset.json
+- Mount St. Helens — https://assets.cesium.com/33301/tileset.json
+
+Example generic OGC 3D Tiles:
+
+- Royal Exhibition Building (point cloud) — https://raw.githubusercontent.com/visgl/deck.gl-data/master/3d-tiles/RoyalExhibitionBuilding/tileset.json
+
+For step-by-step instructions, see [3D Tile Layer — How to add](./p-3d-tile-layer.md).
+
 [Back to table of contents](../README.md)

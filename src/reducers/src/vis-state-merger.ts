@@ -17,7 +17,14 @@ import {
 import {Layer} from '@kepler.gl/layers';
 import {createEffect} from '@kepler.gl/effects';
 import {notNullorUndefined} from '@kepler.gl/common-utils';
-import {AGGREGATION_TYPES, LAYER_BLENDINGS, OVERLAY_BLENDINGS} from '@kepler.gl/constants';
+import {
+  AGGREGATION_TYPES,
+  LAYER_BLENDINGS,
+  OVERLAY_BLENDINGS,
+  isAnnotationKind,
+  INITIAL_ANNOTATION_LINE_COLOR,
+  INITIAL_ANNOTATION_LINE_WIDTH
+} from '@kepler.gl/constants';
 import {CURRENT_VERSION, VisState, VisStateMergers, KeplerGLSchemaClass} from '@kepler.gl/schemas';
 
 import {
@@ -348,7 +355,9 @@ export function mergeInteractions<S extends VisState>(
       }
 
       const currentConfig =
-        key === 'tooltip' || key === 'brush' ? state.interactionConfig[key].config : null;
+        key === 'tooltip' || key === 'brush' || key === 'geocoder'
+          ? state.interactionConfig[key].config
+          : null;
 
       const {enabled, ...configSaved} = interactionToBeMerged[key] || {};
 
@@ -455,6 +464,10 @@ function combineInteractionConfigs(configs: SavedInteractionConfig[]): SavedInte
       // keep the biggest brush size
       combined[key].size =
         aggregate(toBeCombinedProps, AGGREGATION_TYPES.maximum, p => p.size) ?? null;
+    }
+
+    if (key === 'geocoder') {
+      combined[key].limitSearch = toBeCombinedProps.some(p => p?.limitSearch);
     }
   }
 
@@ -573,6 +586,44 @@ export function mergeEffects<S extends VisState>(
     ...state,
     effects: newEffects,
     effectOrder: newEffects.map(effect => effect.id)
+  };
+}
+
+/**
+ * Merge annotations with saved config
+ */
+export function mergeAnnotations<S extends VisState>(state: S, annotations: any[]): S {
+  if (!annotations || !annotations.length) {
+    return state;
+  }
+  const existingIds = new Set(state.annotations.map(a => a.id));
+  const validAnnotations = annotations
+    .filter(
+      a =>
+        a &&
+        a.id &&
+        !existingIds.has(a.id) &&
+        isAnnotationKind(a.kind) &&
+        Array.isArray(a.anchorPoint) &&
+        a.anchorPoint.length === 2
+    )
+    .map(a => ({
+      isVisible: true,
+      autoSize: true,
+      autoSizeY: true,
+      label: '',
+      lineColor: INITIAL_ANNOTATION_LINE_COLOR,
+      lineWidth: INITIAL_ANNOTATION_LINE_WIDTH,
+      textWidth: 0,
+      textHeight: 0,
+      ...a
+    }));
+  if (!validAnnotations.length) {
+    return state;
+  }
+  return {
+    ...state,
+    annotations: [...state.annotations, ...validAnnotations]
   };
 }
 
@@ -1118,6 +1169,11 @@ export const VIS_STATE_MERGERS: VisStateMergers<any> = [
   {
     merge: mergeEffects,
     prop: 'effects'
+  },
+  {
+    merge: mergeAnnotations,
+    prop: 'annotations',
+    toMergeProp: 'annotationsToBeMerged'
   },
   {
     merge: mergeInteractions,

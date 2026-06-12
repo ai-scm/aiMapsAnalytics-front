@@ -4,9 +4,11 @@
 import Console from 'global/console';
 
 import {GEOCODER_LAYER_ID, LIGHT_AND_SHADOW_EFFECT} from '@kepler.gl/constants';
-import {Layer as DeckLayer, LayerProps as DeckLayerProps} from '@deck.gl/core/typed';
+import {Layer as DeckLayer} from '@deck.gl/core';
+type DeckLayerProps = any;
 import {
   Field,
+  LayerVisConfig,
   TooltipField,
   CompareType,
   SplitMapLayers,
@@ -98,6 +100,54 @@ export function findDefaultLayer(dataset: KeplerTable, layerClasses: LayerClasse
       ? layer.setInitialLayerConfig(dataset)
       : layer;
   });
+}
+
+/**
+ * Applies `patch` to `config.visConfig` only for layers whose `dataId` is in `datasetIdsToPatch`.
+ * Layers for datasets that were already on the map are left unchanged — `addDataToMap`
+ * Keys whose patch value is `undefined` are skipped so existing visConfig is not cleared.
+ */
+export function mergeLayerVisConfigForNewDatasets(
+  state: VisState,
+  patch: Partial<LayerVisConfig> | undefined,
+  datasetIdsToPatch: string[]
+): VisState {
+  if (!patch || !Object.keys(patch).length) {
+    return state;
+  }
+
+  const hasDefinedPatchValue = (Object.keys(patch) as Array<keyof LayerVisConfig>).some(
+    key => patch[key] !== undefined
+  );
+  if (!hasDefinedPatchValue) {
+    return state;
+  }
+
+  const datasetIdSet = new Set(datasetIdsToPatch);
+
+  return {
+    ...state,
+    layers: state.layers.map(layer => {
+      if (!layer.config.dataId || !datasetIdSet.has(layer.config.dataId)) {
+        return layer;
+      }
+      const settings = layer.visConfigSettings;
+      if (!settings) {
+        return layer;
+      }
+      const allowedKeys = (Object.keys(patch) as Array<keyof LayerVisConfig>).filter(
+        key => Object.prototype.hasOwnProperty.call(settings, key) && patch[key] !== undefined
+      );
+      if (!allowedKeys.length) {
+        return layer;
+      }
+      const partial = allowedKeys.reduce<Partial<LayerVisConfig>>((acc, key) => {
+        acc[key] = patch[key];
+        return acc;
+      }, {});
+      return layer.updateLayerVisConfig(partial);
+    })
+  };
 }
 
 type MinVisStateForLayerData = {
@@ -338,6 +388,7 @@ export type ComputeDeckLayersProps = {
       feature: Feature | null,
       selectionContext?: FeatureSelectionContext
     ) => any;
+    onApplyPolygonFilterAll?: (feature: Feature) => any;
     featureCollection: {
       type: string;
       features: Feature[];

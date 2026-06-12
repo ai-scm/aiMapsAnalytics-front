@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright contributors to the kepler.gl project
 
-import {COORDINATE_SYSTEM, Layer as DeckLayer} from '@deck.gl/core/typed';
-import {TileLayer, GeoBoundingBox} from '@deck.gl/geo-layers/typed';
+import {COORDINATE_SYSTEM, Layer as DeckLayer} from '@deck.gl/core';
+import {TileLayer, GeoBoundingBox} from '@deck.gl/geo-layers';
 import {PMTilesSource, PMTilesTileSource} from '@loaders.gl/pmtiles';
-import {Texture2DProps} from '@luma.gl/webgl';
+import type {TypedArray} from '@loaders.gl/loader-utils';
+import type {TextureProps} from '@luma.gl/core';
+type Texture2DProps = Partial<TextureProps> & Record<string, any>;
 import memoize from 'lodash/memoize';
 
-import {PathLayer} from '@deck.gl/layers/typed';
+import {PathLayer} from '@deck.gl/layers';
 import {DatasetType, PMTilesType, LAYER_TYPES} from '@kepler.gl/constants';
 import {RasterLayer, RasterMeshLayer} from '@kepler.gl/deckgl-layers';
 import {
@@ -27,13 +29,20 @@ import {notNullorUndefined} from '@kepler.gl/common-utils';
 import {Datasets, KeplerTable as KeplerDataset, VectorTileMetadata} from '@kepler.gl/table';
 import {getApplicationConfig} from '@kepler.gl/utils';
 
-import {rasterVisConfigs, PRESET_OPTIONS, DATA_SOURCE_COLOR_DEFAULTS} from './config';
+import {
+  rasterVisConfigs,
+  PRESET_OPTIONS,
+  DATA_SOURCE_COLOR_DEFAULTS,
+  HIGH_BIT_COLOR_DEFAULTS
+} from './config';
 import {getModules} from './gpu-utils';
 import {getSTACImageRequests, loadImages, loadTerrain} from './image';
 import RasterIcon from './raster-tile-icon';
 import {
   getDataSourceParams,
+  getDataType,
   getMaxRequests,
+  getUsableAssets,
   bboxIntersects,
   computeZRange,
   getSTACBounds,
@@ -58,6 +67,32 @@ import {
 
 import {FindDefaultLayerPropsReturnValue} from '../layer-utils';
 import {default as KeplerLayer, LayerBaseConfigPartial} from '../base-layer';
+
+/**
+ * Extract attribution from STAC metadata providers array.
+ * STAC Items carry providers in properties.providers, Collections at top-level.
+ * Falls back to collection name or title when providers are absent.
+ * Returns null when no meaningful attribution can be determined.
+ */
+function extractSTACAttribution(stac: CompleteSTACObject): {title: string; url: string} | null {
+  const providers = (stac as any).providers || (stac as any).properties?.providers;
+  if (Array.isArray(providers) && providers.length > 0) {
+    const producer = providers.find(p => p.roles?.includes('producer'));
+    const host = providers.find(p => p.roles?.includes('host'));
+    const provider = producer || host || providers[0];
+    if (provider?.name) {
+      return {title: provider.name, url: provider.url || ''};
+    }
+  }
+
+  const title = (stac as any).title || (stac as any).properties?.title || (stac as any).collection;
+  if (title && typeof title === 'string') {
+    const selfLink = ((stac as any).links || []).find(l => l.rel === 'self');
+    return {title, url: selfLink?.href || ''};
+  }
+
+  return null;
+}
 
 // Adjust tileSize to devicePixelRatio, but not higher than 2 to reduce requests to server
 const devicePixelRatio: number = Math.min(
@@ -91,6 +126,8 @@ export type RasterTileLayerVisConfigCommonSettings = {
   opacity: VisConfigNumber;
   enableTerrain: VisConfigBoolean;
   enableTerrainTopView: VisConfigBoolean;
+  showTileBorders: VisConfigBoolean;
+  zoomOffset: VisConfigNumber;
 };
 
 export type RasterTileLayerVisConfigSettings = RasterTileLayerVisConfigCommonSettings & {
@@ -112,6 +149,7 @@ export type RasterTileLayerVisConfigSettings = RasterTileLayerVisConfigCommonSet
   filterRange: VisConfigRange;
   _stacQuery: VisConfigInput;
   singleBandName: VisConfigSelection;
+  bandOverrides: VisConfigInput;
 };
 
 type RasterTileLayerMeta = {
@@ -127,6 +165,13 @@ export default class RasterTileLayer extends KeplerLayer {
   /** Max bands image data value, based on the current viewport */
   maxViewportPixelValue = -Infinity;
   /** Memoized method that calculates data source params */
+
+  /** Callback to trigger a map redraw (stored from layerCallbacks) */
+  onRedrawNeeded: (() => void) | undefined;
+  /** Track the last rendered preset to detect changes */
+  _lastRenderedPreset: string | undefined;
+  /** Timeout ID for deferred redraws */
+  _redrawTimeout: ReturnType<typeof setTimeout> | undefined;
 
   getDataSourceParams: (
     stac: CompleteSTACObject,
@@ -144,7 +189,9 @@ export default class RasterTileLayer extends KeplerLayer {
     // objects don't have a `collection` key; STAC Item objects have a `collection` key (which
     // matches the collection's `id`).
     const resolver = (stac: CompleteSTACObject, preset: string, presetOptions: PresetOption) =>
-      `${stac.id}-${stac.collection}-${preset}-${presetOptions.singleBand?.assetId}-${presetOptions.singleBand?.bandIndex}`;
+      `${stac.id}-${stac.collection}-${preset}-${presetOptions.singleBand?.assetId}-${
+        presetOptions.singleBand?.bandIndex
+      }-${JSON.stringify(presetOptions.bandOverrides || null)}`;
     this.getDataSourceParams = memoize(
       (stac, preset, presetOptions) => getDataSourceParams(stac, preset, presetOptions),
       resolver
@@ -265,9 +312,15 @@ export default class RasterTileLayer extends KeplerLayer {
 
     const stac = dataset.metadata;
     if (stac.pmtilesType === PMTilesType.RASTER) {
-      return this.updateMeta({
-        bounds: stac.bounds
-      });
+      const meta: Record<string, any> = {bounds: stac.bounds};
+      const firstAttribution =
+        Array.isArray(stac.attributions) && stac.attributions.length > 0
+          ? stac.attributions[0]
+          : null;
+      if (typeof firstAttribution === 'string' && firstAttribution) {
+        meta.attribution = {title: firstAttribution, url: ''};
+      }
+      return this.updateMeta(meta);
     }
 
     const bounds = getSTACBounds(stac);
@@ -278,6 +331,11 @@ export default class RasterTileLayer extends KeplerLayer {
       if (stac.type === 'Feature') {
         this.updateMeta({bounds});
       }
+    }
+
+    const attribution = extractSTACAttribution(stac);
+    if (attribution) {
+      this.updateMeta({attribution});
     }
   }
 
@@ -318,8 +376,16 @@ export default class RasterTileLayer extends KeplerLayer {
     // Apply improved image processing props only for non single band modes
     const preset = this.config.visConfig.preset;
     const colorDefaults = DATA_SOURCE_COLOR_DEFAULTS[stac.id];
-    if (colorDefaults && preset !== 'singleBand') {
-      this.updateLayerVisConfig(colorDefaults);
+    if (preset !== 'singleBand') {
+      if (colorDefaults) {
+        this.updateLayerVisConfig(colorDefaults);
+      } else {
+        const usableAssets = getUsableAssets(stac);
+        const dtype = getDataType(usableAssets);
+        if (dtype && dtype !== 'uint8' && dtype !== 'float32' && dtype !== 'float64') {
+          this.updateLayerVisConfig(HIGH_BIT_COLOR_DEFAULTS);
+        }
+      }
     }
 
     /*
@@ -376,7 +442,7 @@ export default class RasterTileLayer extends KeplerLayer {
     let maxPixelValue = -Infinity;
     if (images) {
       for (const image of images) {
-        const [min, max] = getImageMinMax(image.data);
+        const [min, max] = getImageMinMax(image.data as TypedArray);
         if (typeof min === 'number') {
           minPixelValue = Math.min(min, minPixelValue);
         }
@@ -390,7 +456,22 @@ export default class RasterTileLayer extends KeplerLayer {
 
   // generate a deck layer
   renderLayer(opts): TileLayer<any>[] {
-    const {data} = opts;
+    const {data, layerCallbacks} = opts;
+
+    // Store callback to trigger map redraw when sublayers need async re-render
+    this.onRedrawNeeded = layerCallbacks?.onRedrawNeeded;
+
+    // Detect preset changes and schedule a deferred redraw so that
+    // deck.gl re-renders sublayers after the new pipeline compiles
+    const currentPreset = this.config.visConfig?.preset;
+    if (this._lastRenderedPreset !== undefined && this._lastRenderedPreset !== currentPreset) {
+      if (this._redrawTimeout) clearTimeout(this._redrawTimeout);
+      this._redrawTimeout = setTimeout(() => {
+        this._redrawTimeout = undefined;
+        this.onRedrawNeeded?.();
+      }, 100);
+    }
+    this._lastRenderedPreset = currentPreset;
 
     if (data?.dataset?.metadata?.pmtilesType === PMTilesType.RASTER) {
       return this.renderPMTilesLayer(opts);
@@ -399,7 +480,7 @@ export default class RasterTileLayer extends KeplerLayer {
   }
 
   private renderStacLayer(opts): TileLayer<any>[] {
-    const {data, mapState, experimentalContext} = opts;
+    const {data, mapState, experimentalContext, layerCallbacks} = opts;
     const stac = data?.dataset?.metadata as GetTileDataCustomProps['stac'];
 
     // If a tabular dataset is loaded, and then the layer type is switched from Point to Raster Tile
@@ -432,7 +513,8 @@ export default class RasterTileLayer extends KeplerLayer {
       _stacQuery,
       singleBandName,
       colorRange: {colorMap: categoricalColorMap},
-      dynamicColor
+      dynamicColor,
+      bandOverrides
     } = visConfig;
 
     const shouldLoadTerrain = getShouldLoadTerrain(stac, mapState, visConfig);
@@ -444,8 +526,19 @@ export default class RasterTileLayer extends KeplerLayer {
     const {bandCombination} = PRESET_OPTIONS[preset];
 
     const singleBand = getSingleBandPresetOptions(stac, singleBandName);
+    let parsedOverrides: Record<string, string> | null = null;
+    if (bandOverrides && typeof bandOverrides === 'string') {
+      try {
+        parsedOverrides = JSON.parse(bandOverrides);
+      } catch {
+        parsedOverrides = null;
+      }
+    } else if (bandOverrides) {
+      parsedOverrides = bandOverrides as unknown as Record<string, string>;
+    }
     const dataSourceParams: DataSourceParams | null = this.getDataSourceParams(stac, preset, {
-      singleBand
+      singleBand,
+      bandOverrides: parsedOverrides
     });
 
     if (!dataSourceParams) {
@@ -497,6 +590,7 @@ export default class RasterTileLayer extends KeplerLayer {
       minZoom,
       maxZoom,
       tileSize: 512 / devicePixelRatio,
+      zoomOffset: visConfig.zoomOffset || 0,
       getTileData: (args: any) => this.getTileData({...args, ...getTileDataCustomProps}),
       onViewportLoad: this.onViewportLoad.bind(this),
       // @ts-expect-error - TS doesn't know we'll pass appropriate props here
@@ -548,7 +642,9 @@ export default class RasterTileLayer extends KeplerLayer {
       minCategoricalBandValue,
       maxCategoricalBandValue,
       hasCategoricalColorMap: Boolean(categoricalColorMap),
-      hasShadowEffect
+      hasShadowEffect,
+      onRedrawNeeded: layerCallbacks?.onRedrawNeeded,
+      showTileBorders: visConfig.showTileBorders
     });
 
     return [tileLayer];
@@ -557,12 +653,12 @@ export default class RasterTileLayer extends KeplerLayer {
   private renderPMTilesLayer(opts): TileLayer<any>[] {
     const {id, opacity, visible} = this.getDefaultDeckLayerProps(opts);
 
-    const {data, mapState} = opts;
+    const {data, mapState, layerCallbacks} = opts;
     const metadata = data?.dataset?.metadata as VectorTileMetadata;
     const {visConfig} = this.config;
 
     const tileSource = data.tileSource;
-    const showTileBorders = false;
+    const showTileBorders = visConfig.showTileBorders;
     const minZoom = metadata.minZoom || 0;
     const maxZoom = metadata.maxZoom || 30;
 
@@ -585,7 +681,7 @@ export default class RasterTileLayer extends KeplerLayer {
         minZoom,
         maxZoom,
         tileSize: 512 / devicePixelRatio,
-        zoomOffset: devicePixelRatio === 1 ? -1 : 0,
+        zoomOffset: (devicePixelRatio === 1 ? -1 : 0) + (visConfig.zoomOffset || 0),
         // @ts-expect-error - TS doesn't know we'll pass appropriate props here
         renderSubLayers: renderSubLayersPMTiles,
 
@@ -604,7 +700,8 @@ export default class RasterTileLayer extends KeplerLayer {
               zRange: this.meta.zRange || null,
               refinementStrategy: 'no-overlap'
             }
-          : {})
+          : {}),
+        onRedrawNeeded: layerCallbacks?.onRedrawNeeded
       })
     ];
   }
@@ -802,10 +899,9 @@ function renderSubLayersStac(props: RenderSubLayersProps): DeckLayer<any> | Deck
 
   const idSuffix = props.hasShadowEffect ? 'shadow' : '';
 
-  return terrain
+  const rasterLayer = terrain
     ? new RasterMeshLayer(props, {
         id: `raster-3d-layer-${props.id}-${idSuffix}`,
-        // Dummy data
         data: [1],
         mesh: terrain,
         images,
@@ -814,9 +910,7 @@ function renderSubLayersStac(props: RenderSubLayersProps): DeckLayer<any> | Deck
 
         getPolygonOffset: null,
         coordinateSystem: COORDINATE_SYSTEM.LNGLAT,
-        // Color to use if surfaceImage is unavailable
         getColor: [255, 255, 255]
-        // material: false
       })
     : new RasterLayer(props, {
         id: `raster-2d-layer-${props.id}-${idSuffix}`,
@@ -826,15 +920,39 @@ function renderSubLayersStac(props: RenderSubLayersProps): DeckLayer<any> | Deck
         bounds: [west, south, east, north],
         _imageCoordinateSystem: COORDINATE_SYSTEM.CARTESIAN
       });
+
+  if (props.showTileBorders) {
+    const borderColor: [number, number, number, number] = [0, 255, 0, 200];
+    return [
+      rasterLayer,
+      new PathLayer({
+        id: `${props.id}-border`,
+        data: [
+          [
+            [west, north],
+            [west, south],
+            [east, south],
+            [east, north],
+            [west, north]
+          ]
+        ],
+        getPath: d => d,
+        getColor: borderColor,
+        widthMinPixels: 2
+      })
+    ];
+  }
+
+  return rasterLayer;
 }
 
 function renderSubLayersPMTiles(props: {
   id: string;
   data: any;
   tileSource: any;
-  showTileBorders: any;
-  minZoom: any;
-  maxZoom: any;
+  showTileBorders: boolean;
+  minZoom: number;
+  maxZoom: number;
   tile: any;
 }) {
   const {
@@ -864,8 +982,8 @@ function renderSubLayersPMTiles(props: {
     }
   }
 
-  // Debug tile borders
-  const borderColor = zoom <= minZoom || zoom >= maxZoom ? [255, 0, 0, 255] : [0, 0, 255, 255];
+  const borderColor: [number, number, number, number] =
+    zoom <= minZoom || zoom >= maxZoom ? [255, 0, 0, 255] : [0, 0, 255, 255];
   if (showTileBorders) {
     layers.push(
       new PathLayer({
@@ -880,7 +998,7 @@ function renderSubLayersPMTiles(props: {
           ]
         ],
         getPath: d => d,
-        getColor: borderColor as any,
+        getColor: borderColor,
         widthMinPixels: 4
       })
     );
