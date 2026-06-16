@@ -27,6 +27,60 @@ const EXTERNAL_LOADERS_SRC = join(LIB_DIR, 'loaders.gl');
 
 const port = 8080;
 
+const getScopedPackageAliases = (scope, nodeModulesDir) => {
+  const scopeDir = join(nodeModulesDir, scope);
+
+  if (!fs.existsSync(scopeDir)) {
+    return {};
+  }
+
+  const getExportAliases = (packageName, packageDir) => {
+    const packageJsonPath = join(packageDir, 'package.json');
+
+    if (!fs.existsSync(packageJsonPath)) {
+      return {};
+    }
+
+    const {exports: packageExports} = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+
+    if (!packageExports || typeof packageExports !== 'object') {
+      return {};
+    }
+
+    return Object.entries(packageExports)
+      .filter(([exportPath]) => exportPath.startsWith('./') && exportPath !== './package.json')
+      .reduce((aliases, [exportPath, exportTarget]) => {
+        const target =
+          typeof exportTarget === 'string'
+            ? exportTarget
+            : exportTarget && typeof exportTarget === 'object'
+            ? exportTarget.import || exportTarget.browser || exportTarget.default || exportTarget.require
+            : null;
+
+        return target
+          ? {
+              ...aliases,
+              [`${packageName}/${exportPath.slice(2)}`]: join(packageDir, target)
+            }
+          : aliases;
+      }, {});
+  };
+
+  return fs
+    .readdirSync(scopeDir, {withFileTypes: true})
+    .filter(item => item.isDirectory())
+    .reduce((aliases, item) => {
+      const packageName = `${scope}/${item.name}`;
+      const packageDir = join(scopeDir, item.name);
+
+      return {
+        ...aliases,
+        [packageName]: packageDir,
+        ...getExportAliases(packageName, packageDir)
+      };
+    }, {});
+};
+
 const getThirdPartyLibraryAliases = useKeplerNodeModules => {
   const nodeModulesDir = useKeplerNodeModules ? NODE_MODULES_DIR : BASE_NODE_MODULES_DIR;
 
@@ -36,9 +90,18 @@ const getThirdPartyLibraryAliases = useKeplerNodeModules => {
         'tiny-warning': `${SRC_DIR}/utils/src/noop.ts`
       }
     : {};
+  const scopedPackageAliases = useKeplerNodeModules
+    ? {
+        ...getScopedPackageAliases('@deck.gl', nodeModulesDir),
+        ...getScopedPackageAliases('@loaders.gl', nodeModulesDir),
+        ...getScopedPackageAliases('@luma.gl', nodeModulesDir),
+        ...getScopedPackageAliases('@probe.gl', nodeModulesDir)
+      }
+    : {};
 
   return {
     ...localSources,
+    ...scopedPackageAliases,
     react: `${nodeModulesDir}/react`,
     'react-dom': `${nodeModulesDir}/react-dom`,
     'react-redux': `${nodeModulesDir}/react-redux/lib`,
