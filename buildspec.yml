@@ -23,7 +23,7 @@ phases:
           PRODUCT_VERSION=$(echo $VERSION | cut -d. -f1,2)
           aws dynamodb update-item --table-name houndoc_product_master --key '{ "product": { "S": "AIMaps" } }' --update-expression "SET version = :v" --expression-attribute-values "{\":v\": { \"S\": \"$PRODUCT_VERSION\" } }" --region $AWS_DEFAULT_REGION
           echo "Uploading to CHANGELOG ...."
-          aws s3 cp CHANGELOG.md s3://houndoc-changelog/MD/AIMapsAnalyticsFront.md
+          aws s3 cp "CHANGELOG _AIMAPS.md" s3://houndoc-changelog/MD/CHANGELOG.md
           aws cloudfront create-invalidation --distribution-id EIRU1D5WYXMJD --paths "/*"
         fi
   post_build:
@@ -32,5 +32,5 @@ phases:
       - echo Uploading to S3 ....
       - aws s3 cp $PRODUCT_NAME.zip s3://$BUCKET_NAME/$TYPE/$PRODUCT_NAME/$VERSION/$PRODUCT_NAME.zip
       - echo "Uploading to S3 completed"
-      - aws s3 cp CHANGELOG.md s3://$CHANGELOG_BUCKET/MD/$CHANGELOG_FILE_NAME
+      - aws s3 cp "CHANGELOG _AIMAPS.md" s3://$CHANGELOG_BUCKET/MD/CHANGELOG.md
       - aws cloudfront create-invalidation --distribution-id $CHANGELOG_DISTRIBUTION_ID --paths "/*"
